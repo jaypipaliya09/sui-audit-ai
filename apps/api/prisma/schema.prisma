@@ -1,0 +1,51 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Audit {
+  id            String      @id @default(uuid())
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  contractName  String
+  contractCode  String      @db.Text
+  status        AuditStatus @default(QUEUED)
+
+  blobId        String?     @unique
+  walrusUrl     String?
+  overallRisk   RiskLevel?
+  findingsJson  Json?
+  summaryJson   Json?
+
+  criticalCount Int         @default(0)
+  highCount     Int         @default(0)
+  mediumCount   Int         @default(0)
+  lowCount      Int         @default(0)
+  infoCount     Int         @default(0)
+
+  errorMessage  String?
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum AuditStatus {
+  QUEUED
+  ANALYZING
+  STORING
+  COMPLETE
+  FAILED
+}
+
+enum RiskLevel {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+  CLEAN
+}
