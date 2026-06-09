@@ -1,4 +1,7 @@
-// ─── Enums ───────────────────────────────────────────────────────────────────
+// ─── Re-export shared types for convenient backend usage ─────────────────────
+// These mirror the shared-types package so the rest of the backend can import
+// from a single location. If shared-types gets published as a workspace
+// package later, swap these for re-exports from '@sui-audit-ai/shared-types'.
 
 export enum FindingSeverity {
   CRITICAL = 'CRITICAL',
@@ -41,8 +44,6 @@ export enum RiskLevel {
   CLEAN = 'CLEAN',
 }
 
-// ─── Interfaces ──────────────────────────────────────────────────────────────
-
 export interface AuditFinding {
   id: string;
   title: string;
@@ -80,8 +81,6 @@ export interface AuditResult {
   overallRecommendations: string[];
 }
 
-// ─── Event Interfaces ────────────────────────────────────────────────────────
-
 export interface ProgressEvent {
   step: string;
   pct: number;
@@ -92,4 +91,19 @@ export interface AuditCompleteEvent {
   blobId: string;
   walrusUrl: string;
   auditId: string;
+}
+
+// ─── Backend-specific types ──────────────────────────────────────────────────
+
+export interface ClaudeApiConfig {
+  model: string;
+  maxTokens: number;
+  apiKey: string;
+}
+
+export interface AuditJobData {
+  auditId: string;
+  contractCode: string;
+  contractName: string;
+  submittedAt: Date;
 }
