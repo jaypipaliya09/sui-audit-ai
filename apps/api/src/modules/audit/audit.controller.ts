@@ -10,6 +10,7 @@ import {
   Post,
   Sse,
 } from '@nestjs/common';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { Observable, of } from 'rxjs';
 import { AuditService } from './audit.service.js';
 import { AuditGateway } from './audit.gateway.js';
@@ -34,9 +35,11 @@ export class AuditController {
   ) {}
 
   // ─── POST /audit/submit ───────────────────────────────────────────────────
+  // Rate-limited: 20 submissions per IP per hour
 
   @Post('submit')
   @HttpCode(HttpStatus.ACCEPTED)
+  @Throttle({ default: { limit: 20, ttl: 3600_000 } })
   async submit(@Body() dto: SubmitAuditDto) {
     const { auditId } = await this.auditService.submitAudit(dto);
     return {
@@ -48,7 +51,9 @@ export class AuditController {
   }
 
   // ─── GET /audit/:id/status (SSE) ─────────────────────────────────────────
+  // No rate limit on SSE — clients need to reconnect freely
 
+  @SkipThrottle()
   @Sse(':id/status')
   @Header('Cache-Control', 'no-cache')
   @Header('X-Accel-Buffering', 'no')

@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { BullModule } from '@nestjs/bullmq';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { PrismaModule } from './prisma/prisma.module.js';
@@ -41,6 +43,16 @@ import { HealthController } from './modules/health/health.controller.js';
       },
     }),
 
+    // ── Throttler (global rate limiting) ──────────────────────────────────
+    // 20 audit submissions per IP per hour; SSE polling excluded via @SkipThrottle
+    ThrottlerModule.forRoot([
+      {
+        name: 'default',
+        ttl: 3600_000, // 1 hour in ms
+        limit: 20,
+      },
+    ]),
+
     // ── Prisma (global) — single shared DB connection ─────────────────────
     PrismaModule,
 
@@ -51,6 +63,13 @@ import { HealthController } from './modules/health/health.controller.js';
     AuditModule,
   ],
   controllers: [AppController, HealthController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    // Apply ThrottlerGuard globally — individual routes can opt-out with @SkipThrottle()
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}

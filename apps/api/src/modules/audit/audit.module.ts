@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { AUDIT_QUEUE } from '../../common/constants/queue.constants.js';
 import { ClaudeModule } from '../claude/claude.module.js';
@@ -17,7 +17,7 @@ import { AuditRepository } from './audit.repository.js';
     // Import service modules we depend on
     ClaudeModule,
     WalrusModule,
-    ReportModule,
+    forwardRef(() => ReportModule),
   ],
   controllers: [AuditController],
   providers: [

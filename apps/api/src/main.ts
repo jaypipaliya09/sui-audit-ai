@@ -1,6 +1,8 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { AppModule } from './app.module.js';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter.js';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor.js';
 
 const logger = new Logger('Bootstrap');
 
@@ -25,10 +27,20 @@ async function bootstrap() {
     }),
   );
 
+  // ── Global Exception Filter ───────────────────────────────────────────────
+  // Converts all thrown exceptions into a consistent JSON error envelope
+  app.useGlobalFilters(new HttpExceptionFilter());
+
+  // ── Global Logging Interceptor ────────────────────────────────────────────
+  // Logs every request with method, path, status, and response time
+  app.useGlobalInterceptors(new LoggingInterceptor());
+
   const port = process.env.PORT || 3001;
   await app.listen(port);
   logger.log(`🚀 Application running on: http://localhost:${port}`);
   logger.log(`📋 Health check: http://localhost:${port}/health`);
+  logger.log(`📊 Reports API: http://localhost:${port}/reports`);
 }
 bootstrap();
+
 

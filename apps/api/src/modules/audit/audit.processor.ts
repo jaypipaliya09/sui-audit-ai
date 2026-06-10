@@ -1,5 +1,5 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Logger } from '@nestjs/common';
+import { Inject, Logger, forwardRef } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { AUDIT_QUEUE } from '../../common/constants/queue.constants.js';
 import { ClaudeService } from '../claude/claude.service.js';
@@ -25,6 +25,7 @@ export class AuditProcessor extends WorkerHost {
   constructor(
     private readonly claudeService: ClaudeService,
     private readonly walrusService: WalrusService,
+    @Inject(forwardRef(() => ReportService))
     private readonly reportService: ReportService,
     private readonly auditRepository: AuditRepository,
     private readonly auditGateway: AuditGateway,

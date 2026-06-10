@@ -91,7 +91,7 @@ async function main() {
 
   // Step 1: Generate HTML report
   console.log('1️⃣  Generating HTML report...');
-  const reportService = new ReportService();
+  const reportService = new ReportService(null as any); // repo not needed for generateHtml()
   const html = reportService.generateHtml(mockResult, 'test_contract::vault');
   console.log(`   ✅ HTML generated (${html.length} bytes)`);
 
