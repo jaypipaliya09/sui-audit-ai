@@ -1,21 +1,54 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { BullModule } from '@nestjs/bullmq';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
+import { PrismaModule } from './prisma/prisma.module.js';
 import { ClaudeModule } from './modules/claude/claude.module.js';
 import { WalrusModule } from './modules/walrus/walrus.module.js';
 import { ReportModule } from './modules/report/report.module.js';
+import { AuditModule } from './modules/audit/audit.module.js';
 import { HealthController } from './modules/health/health.controller.js';
 
 @Module({
   imports: [
+    // ── Config (global) ───────────────────────────────────────────────────
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
     }),
+
+    // ── EventEmitter (global) — powers SSE progress streaming ─────────────
+    EventEmitterModule.forRoot({
+      // Allow wildcard listeners e.g. 'audit:*'
+      wildcard: false,
+      // Max listeners per event to avoid memory leak warnings
+      maxListeners: 20,
+    }),
+
+    // ── BullMQ (global) — connects to Redis ───────────────────────────────
+    BullModule.forRoot({
+      connection: {
+        host: process.env.REDIS_HOST || 'localhost',
+        port: parseInt(process.env.REDIS_PORT || '6379', 10),
+      },
+      defaultJobOptions: {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 5_000 },
+        removeOnComplete: 100,
+        removeOnFail: 50,
+      },
+    }),
+
+    // ── Prisma (global) — single shared DB connection ─────────────────────
+    PrismaModule,
+
+    // ── Feature Modules ───────────────────────────────────────────────────
     ClaudeModule,
     WalrusModule,
     ReportModule,
+    AuditModule,
   ],
   controllers: [AppController, HealthController],
   providers: [AppService],
