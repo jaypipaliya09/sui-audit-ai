@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, AlertTriangle, Wrench, Code2 } from 'lucide-react';
 import { AuditFinding } from '@sui-audit-ai/shared-types';

@@ -2,8 +2,11 @@ import React from 'react';
 import { FindingCard } from './FindingCard';
 import { RiskBadge } from './RiskBadge';
 import { WalrusLink } from './WalrusLink';
-import { CheckCircle2, AlertCircle, Zap, ShieldCheck } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { CheckCircle2, AlertCircle, Zap, ShieldCheck, Share2 } from 'lucide-react';
 import { AuditFinding, GasAnalysis, AuditSummary } from '@sui-audit-ai/shared-types';
+
+const SeverityChart = dynamic(() => import('./SeverityChart').then(mod => mod.SeverityChart), { ssr: false });
 
 interface ReportViewerProps {
   audit: {
@@ -97,15 +100,19 @@ export function ReportViewer({ audit }: ReportViewerProps) {
 
       {/* Findings List */}
       {!isClean && findings && findings.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold text-white flex items-center gap-2 mb-4">
-            <AlertCircle className="w-5 h-5 text-red-400" />
-            Detailed Findings ({findings.length})
-          </h2>
-          <div className="space-y-3">
-            {findings.map((finding) => (
-              <FindingCard key={finding.id} finding={finding} />
-            ))}
+        <div className="space-y-6">
+          <SeverityChart findings={findings} />
+          
+          <div>
+            <h2 className="text-xl font-semibold text-white flex items-center gap-2 mb-4">
+              <AlertCircle className="w-5 h-5 text-red-400" />
+              Detailed Findings ({findings.length})
+            </h2>
+            <div className="space-y-3">
+              {findings.map((finding) => (
+                <FindingCard key={finding.id} finding={finding} />
+              ))}
+            </div>
           </div>
         </div>
       )}
