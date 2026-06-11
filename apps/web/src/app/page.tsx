@@ -12,7 +12,7 @@ import { ContractEditor } from '@/components/ContractEditor';
 import { RiskBadge } from '@/components/RiskBadge';
 import { SkeletonAuditCard } from '@/components/SkeletonCard';
 import { useWallet } from '@/lib/walletContext';
-import { Transaction } from '@mysten/sui/transactions';
+import { TransactionBlock } from '@mysten/sui.js/transactions';
 
 /* ─── Feature Cards Data ─────────────────────────────────────────── */
 const FEATURES = [
@@ -151,36 +151,85 @@ export default function Home() {
     let txDigest = '';
 
     try {
-      // Demo Mode bypasses the transaction
-      if (provider === 'demo') {
-        txDigest = '';
-      } else {
-        // Build the transaction
-        const tx = new Transaction();
-        const TREASURY_ADDRESS = '0x69fb32ef40f1954a2279041bb2d90c4e7d289dd10486409ae81e7ef39467d8b0';
-        
-        // Split 1 SUI from gas coin
-        const coin = tx.splitCoins(tx.gas, [1_000_000_000]); // 1 SUI = 10^9 MIST
-        
-        // Transfer to treasury
-        tx.transferObjects([coin], TREASURY_ADDRESS);
-        
-        // Request signature and execution from the wallet
-        const res = await provider.signAndExecuteTransactionBlock({
-          transactionBlock: tx,
-          options: {
-            showEffects: true,
-          },
-        });
-        
-        if (res.effects?.status?.status !== 'success') {
-          throw new Error('Transaction failed on network.');
-        }
-        
-        txDigest = res.digest;
+      // Build and sign a 1 SUI payment transaction via the Slush wallet extension
+      const tx = new TransactionBlock();
+      const TREASURY_ADDRESS = '0x69fb32ef40f1954a2279041bb2d90c4e7d289dd10486409ae81e7ef39467d8b0';
+
+      // Split 1 SUI (10^9 MIST) from gas coin and transfer to treasury
+      const [coin] = tx.splitCoins(tx.gas, [tx.pure(1_000_000_000)]);
+      tx.transferObjects([coin], tx.pure(TREASURY_ADDRESS));
+
+      // 1. Retrieve the active account object from the provider robustly (handling standard, legacy, and session reconnects)
+      let account = null;
+
+      if (provider.accounts) {
+        account = provider.accounts.find((a: any) => a.address?.toLowerCase() === address.toLowerCase()) || provider.accounts[0];
       }
 
-      // Submit to backend
+      if (!account && typeof provider.getAccounts === 'function') {
+        try {
+          const legacyAccounts = await provider.getAccounts();
+          const foundLegacy = legacyAccounts?.find((a: any) => {
+            const addr = typeof a === 'string' ? a : a?.address;
+            return addr?.toLowerCase() === address.toLowerCase();
+          });
+          if (foundLegacy) {
+            account = typeof foundLegacy === 'string' ? { address: foundLegacy } : foundLegacy;
+          } else if (legacyAccounts?.[0]) {
+            const first = legacyAccounts[0];
+            account = typeof first === 'string' ? { address: first } : first;
+          }
+        } catch (err) {
+          console.error('Failed to get legacy accounts:', err);
+        }
+      }
+
+      if (!account && provider.features?.['standard:connect']?.connect) {
+        try {
+          const connResult = await provider.features['standard:connect'].connect();
+          const accounts = connResult.accounts || provider.accounts || [];
+          account = accounts.find((a: any) => a.address?.toLowerCase() === address.toLowerCase()) || accounts[0];
+        } catch (err) {
+          console.error('Failed to establish standard connection:', err);
+        }
+      }
+
+      // Request signature and execution from the Slush wallet extension
+      let txResult;
+
+      if (provider.features?.['sui:signAndExecuteTransaction'] && account) {
+        // Wallet Standard v2 API
+        txResult = await provider.features['sui:signAndExecuteTransaction'].signAndExecuteTransaction({
+          account,
+          chain: 'sui:testnet',
+          transaction: tx,
+          options: { showEffects: true },
+        });
+      } else if (provider.features?.['sui:signAndExecuteTransactionBlock'] && account) {
+        // Wallet Standard v1 API (Legacy)
+        txResult = await provider.features['sui:signAndExecuteTransactionBlock'].signAndExecuteTransactionBlock({
+          account,
+          chain: 'sui:testnet',
+          transactionBlock: tx,
+          options: { showEffects: true },
+        });
+      } else if (typeof provider.signAndExecuteTransactionBlock === 'function') {
+        // Legacy API
+        txResult = await provider.signAndExecuteTransactionBlock({
+          transactionBlock: tx,
+          options: { showEffects: true },
+        });
+      } else {
+        throw new Error('Wallet connected but no active account found to sign the transaction. Please try reconnecting.');
+      }
+
+      if (txResult.effects?.status?.status !== 'success') {
+        throw new Error('Transaction failed on the Sui network. Please try again.');
+      }
+
+      txDigest = txResult.digest;
+
+      // Submit to backend with txDigest for verification
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
       const res = await fetch(`${API_URL}/audit/submit`, {
         method: 'POST',
@@ -409,7 +458,7 @@ export default function Home() {
                 ) : (
                   <>
                     <Shield className="w-4 h-4" />
-                    {isConnected && provider !== 'demo' ? 'Pay 1 SUI & Run Audit' : 'Run Security Audit'}
+                    {isConnected ? 'Pay 1 SUI & Run Audit' : 'Connect Slush to Audit'}
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
@@ -417,9 +466,17 @@ export default function Home() {
             </div>
 
             {error && (
-              <div className="flex items-start gap-3 p-4 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-sm">
-                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                {error}
+              <div className="flex flex-col gap-3 p-4 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-sm">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <div>{error}</div>
+                </div>
+                {/* Diagnostics block */}
+                <div className="mt-2 text-xs font-mono text-gray-500 border-t border-red-500/10 pt-2 space-y-1">
+                  <div>Connected Address (Context): {address || 'none'}</div>
+                  <div>Wallet Provider: {provider?.name || (provider ? 'unknown' : 'none')}</div>
+                  <div>Wallet Accounts: {provider?.accounts ? JSON.stringify(provider.accounts.map((a: any) => a.address)) : 'none'}</div>
+                </div>
               </div>
             )}
 

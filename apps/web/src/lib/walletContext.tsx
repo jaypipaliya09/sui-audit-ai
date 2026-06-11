@@ -2,70 +2,39 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 
-/* ─── Sui Wallet detection ───────────────────────────────────────── */
+/* ─── Sui / Slush Wallet provider ───────────────────────────────── */
 declare global {
   interface Window {
     suiWallet?: any;
     sui?: any;
-    suiet?: any;
-    martian?: any;
-    okxwallet?: { sui?: any };
-    ethos?: any;
-    glass?: any;
   }
 }
 
-export interface DetectedWallet {
-  id: string;
-  name: string;
-  icon: string;
-  description: string;
-  installUrl: string;
-  getProvider: () => any | null;
-}
+import { getWallets } from '@wallet-standard/app';
 
-export const SUPPORTED_WALLETS: DetectedWallet[] = [
-  {
-    id: 'sui',
-    name: 'Sui Wallet',
-    icon: '🌊',
-    description: 'Official Sui Foundation wallet',
-    installUrl: 'https://suiwallet.com',
-    getProvider: () => (typeof window !== 'undefined' ? window.suiWallet || window.sui : null),
-  },
-  {
-    id: 'suiet',
-    name: 'Suiet',
-    icon: '⚡',
-    description: 'Community-built Sui wallet',
-    installUrl: 'https://suiet.app',
-    getProvider: () => (typeof window !== 'undefined' ? window.suiet : null),
-  },
-  {
-    id: 'martian',
-    name: 'Martian Wallet',
-    icon: '🚀',
-    description: 'Multi-chain Sui wallet',
-    installUrl: 'https://martianwallet.xyz',
-    getProvider: () => (typeof window !== 'undefined' ? window.martian : null),
-  },
-  {
-    id: 'okx',
-    name: 'OKX Wallet',
-    icon: '⭕',
-    description: 'OKX exchange wallet',
-    installUrl: 'https://www.okx.com/web3',
-    getProvider: () => (typeof window !== 'undefined' ? window.okxwallet?.sui : null),
-  },
-  {
-    id: 'demo',
-    name: 'Demo Mode',
-    icon: '🎭',
-    description: 'Use a demo wallet address for testing',
-    installUrl: '',
-    getProvider: () => 'demo',
-  },
-];
+/** Returns the Slush / Sui Wallet browser extension provider, or null */
+function getSuiExtensionProvider(): any | null {
+  if (typeof window === 'undefined') return null;
+
+  // Legacy globals
+  if ((window as any).suiWallet) return (window as any).suiWallet;
+  if ((window as any).slush) return (window as any).slush;
+  if ((window as any).sui) return (window as any).sui;
+
+  // Wallet Standard API
+  try {
+    const walletsApi = getWallets();
+    const wallets = walletsApi.get();
+    const found = wallets?.find(
+      (w: any) =>
+        w.name?.toLowerCase().includes('sui') ||
+        w.name?.toLowerCase().includes('slush')
+    );
+    if (found) return found;
+  } catch {}
+
+  return null;
+}
 
 export interface SavedAudit {
   auditId: string;
@@ -103,32 +72,34 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
   const [address, setAddress] = useState<string | null>(null);
   const [myAudits, setMyAudits] = useState<SavedAudit[]>([]);
 
-  // Restore session from localStorage
+  // Restore session from localStorage and reconnect provider
   useEffect(() => {
     try {
       const storedAddr = localStorage.getItem(STORAGE_KEY);
       const storedWalletId = localStorage.getItem(WALLET_ID_KEY);
-      
+
       if (storedAddr) {
         setAddress(storedAddr);
-        
-        // Try to reconnect provider
-        if (storedWalletId) {
-          if (storedWalletId === 'demo') {
-            setProvider('demo');
-          } else {
-            const wallet = SUPPORTED_WALLETS.find((w) => w.id === storedWalletId);
-            if (wallet) {
-              // Wait slightly for extensions to inject window objects
-              setTimeout(() => {
-                const p = wallet.getProvider();
-                if (p) setProvider(p);
-              }, 500);
+
+        // Only re-attach the Slush/Sui wallet provider
+        if (storedWalletId === 'sui') {
+          // Extensions inject with a slight delay — retry up to 3s
+          let attempts = 0;
+          const interval = setInterval(() => {
+            const p = getSuiExtensionProvider();
+            if (p) {
+              setProvider(p);
+              clearInterval(interval);
+              // Silently establish standard connection to populate provider.accounts
+              if (p.features?.['standard:connect']?.connect) {
+                p.features['standard:connect'].connect().catch(() => {});
+              }
             }
-          }
+            if (++attempts >= 6) clearInterval(interval); // give up after 3s
+          }, 500);
         }
       }
-      
+
       const audits = localStorage.getItem(AUDITS_KEY);
       if (audits) setMyAudits(JSON.parse(audits));
     } catch {}
