@@ -2,72 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Wallet, AlertCircle, CheckCircle2, ExternalLink, Copy, Check, LogOut, ChevronDown } from 'lucide-react';
-import { useWallet } from '@/lib/walletContext';
-
-/* ─── Sui Wallet detection ───────────────────────────────────────── */
-declare global {
-  interface Window {
-    suiWallet?: any;
-    sui?: any;
-    suiet?: any;
-    martian?: any;
-    okxwallet?: { sui?: any };
-    ethos?: any;
-    glass?: any;
-  }
-}
-
-interface DetectedWallet {
-  id: string;
-  name: string;
-  icon: string;
-  description: string;
-  installUrl: string;
-  getProvider: () => any | null;
-}
-
-const SUPPORTED_WALLETS: DetectedWallet[] = [
-  {
-    id: 'sui',
-    name: 'Sui Wallet',
-    icon: '🌊',
-    description: 'Official Sui Foundation wallet',
-    installUrl: 'https://suiwallet.com',
-    getProvider: () => (typeof window !== 'undefined' ? window.suiWallet || window.sui : null),
-  },
-  {
-    id: 'suiet',
-    name: 'Suiet',
-    icon: '⚡',
-    description: 'Community-built Sui wallet',
-    installUrl: 'https://suiet.app',
-    getProvider: () => (typeof window !== 'undefined' ? window.suiet : null),
-  },
-  {
-    id: 'martian',
-    name: 'Martian Wallet',
-    icon: '🚀',
-    description: 'Multi-chain Sui wallet',
-    installUrl: 'https://martianwallet.xyz',
-    getProvider: () => (typeof window !== 'undefined' ? window.martian : null),
-  },
-  {
-    id: 'okx',
-    name: 'OKX Wallet',
-    icon: '⭕',
-    description: 'OKX exchange wallet',
-    installUrl: 'https://www.okx.com/web3',
-    getProvider: () => (typeof window !== 'undefined' ? window.okxwallet?.sui : null),
-  },
-  {
-    id: 'demo',
-    name: 'Demo Mode',
-    icon: '🎭',
-    description: 'Use a demo wallet address for testing',
-    installUrl: '',
-    getProvider: () => 'demo',
-  },
-];
+import { useWallet, SUPPORTED_WALLETS } from '@/lib/walletContext';
+import type { DetectedWallet } from '@/lib/walletContext';
 
 function shortAddr(addr: string) {
   if (addr.length <= 16) return addr;
@@ -103,7 +39,7 @@ function ConnectModal({ onClose }: ConnectModalProps) {
         const demo = process.env.NEXT_PUBLIC_DEMO_WALLET_ADDRESS || `0x${Array.from({ length: 64 }, () =>
           Math.floor(Math.random() * 16).toString(16)
         ).join('')}`;
-        connect(demo);
+        connect(demo, 'demo', wallet.id);
         onClose();
         return;
       }
@@ -132,7 +68,7 @@ function ConnectModal({ onClose }: ConnectModalProps) {
 
       if (!address) throw new Error('No account returned from wallet');
 
-      connect(address, provider);
+      connect(address, provider, wallet.id);
       onClose();
     } catch (err: any) {
       setError(err.message || 'Connection failed');

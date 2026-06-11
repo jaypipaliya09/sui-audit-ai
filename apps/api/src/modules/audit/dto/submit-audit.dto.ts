@@ -59,8 +59,8 @@ export class SubmitAuditDto {
   @MaxLength(500, { message: 'Description must not exceed 500 characters' })
   description?: string;
 
-  /** Required transaction digest proving payment of 1 SUI */
+  /** Optional transaction digest proving payment of 1 SUI */
+  @IsOptional()
   @IsString()
-  @IsNotEmpty({ message: 'Transaction digest is required for payment verification' })
-  txDigest: string;
+  txDigest?: string;
 }

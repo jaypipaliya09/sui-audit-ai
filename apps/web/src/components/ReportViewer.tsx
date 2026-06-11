@@ -8,7 +8,7 @@ import dynamic from 'next/dynamic';
 import { CheckCircle2, AlertCircle, Zap, ShieldCheck, Share2, Check } from 'lucide-react';
 import { AuditFinding, GasAnalysis, AuditSummary } from '@sui-audit-ai/shared-types';
 
-const SeverityChart = dynamic(() => import('./SeverityChart').then(mod => mod.SeverityChart), { ssr: false });
+const SeverityChart = dynamic(() => import('./SeverityChart'), { ssr: false });
 
 interface ReportViewerProps {
   audit: {

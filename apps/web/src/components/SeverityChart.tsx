@@ -8,7 +8,7 @@ interface SeverityChartProps {
   findings: AuditFinding[];
 }
 
-export function SeverityChart({ findings }: SeverityChartProps) {
+export default function SeverityChart({ findings }: SeverityChartProps) {
   // Count findings by severity
   const counts = {
     CRITICAL: 0,
