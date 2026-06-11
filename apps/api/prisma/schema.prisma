@@ -22,6 +22,7 @@ model Audit {
   findingsJson  Json?
   summaryJson   Json?
 
+  txDigest      String?     @unique
   criticalCount Int         @default(0)
   highCount     Int         @default(0)
   mediumCount   Int         @default(0)

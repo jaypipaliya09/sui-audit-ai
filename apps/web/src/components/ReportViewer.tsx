@@ -1,9 +1,11 @@
-import React from 'react';
+'use client';
+
+import React, { useState } from 'react';
 import { FindingCard } from './FindingCard';
 import { RiskBadge } from './RiskBadge';
 import { WalrusLink } from './WalrusLink';
 import dynamic from 'next/dynamic';
-import { CheckCircle2, AlertCircle, Zap, ShieldCheck, Share2 } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Zap, ShieldCheck, Share2, Check } from 'lucide-react';
 import { AuditFinding, GasAnalysis, AuditSummary } from '@sui-audit-ai/shared-types';
 
 const SeverityChart = dynamic(() => import('./SeverityChart').then(mod => mod.SeverityChart), { ssr: false });
@@ -32,6 +34,17 @@ interface ReportViewerProps {
 export function ReportViewer({ audit }: ReportViewerProps) {
   const { summaryJson: summary, findingsJson: findings } = audit;
   const isClean = audit.overallRisk === 'CLEAN';
+  const [copied, setCopied] = useState(false);
+
+  const handleShare = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // fallback
+    }
+  };
 
   return (
     <div className="w-full max-w-5xl mx-auto space-y-8">
@@ -54,6 +67,13 @@ export function ReportViewer({ audit }: ReportViewerProps) {
         </div>
         <div className="flex flex-col items-start md:items-end gap-3">
           <RiskBadge level={audit.overallRisk} className="text-sm px-3 py-1" />
+          <button
+            onClick={handleShare}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#30363d] bg-[#21262d] hover:bg-[#2d333b] text-gray-400 hover:text-gray-200 text-xs font-medium transition-all"
+          >
+            {copied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Share2 className="w-3.5 h-3.5" />}
+            {copied ? 'Link Copied!' : 'Share Report'}
+          </button>
         </div>
       </div>
 

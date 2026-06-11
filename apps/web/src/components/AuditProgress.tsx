@@ -45,13 +45,13 @@ export function AuditProgress({ auditId, onComplete }: AuditProgressProps) {
   };
 
   return (
-    <div className="w-full max-w-2xl mx-auto p-6 rounded-xl border border-gray-800 bg-[#121212] shadow-xl text-gray-200">
+    <div className="w-full max-w-2xl mx-auto p-6 rounded-2xl border border-[#21262d] bg-[#161b22] shadow-2xl text-gray-200">
       <div className="mb-8">
         <div className="flex justify-between items-center mb-2">
           <h2 className="text-xl font-semibold text-white">Audit in Progress</h2>
           <span className="text-sm font-mono text-gray-400">{pct}%</span>
         </div>
-        <div className="w-full bg-gray-800 rounded-full h-2.5 overflow-hidden">
+        <div className="w-full bg-[#21262d] rounded-full h-2 overflow-hidden">
           <div
             className={`h-2.5 rounded-full transition-all duration-500 ${
               status === 'complete' ? 'bg-green-500' : status === 'error' ? 'bg-red-500' : 'bg-blue-500'
@@ -104,10 +104,14 @@ export function AuditProgress({ auditId, onComplete }: AuditProgressProps) {
       </div>
 
       {status === 'complete' && (
-        <div className="mt-10 flex justify-end">
+        <div className="mt-10 flex items-center justify-between gap-4 pt-6 border-t border-[#21262d]">
+          <div className="flex items-center gap-2 text-green-400 text-sm font-semibold">
+            <CheckCircle2 className="w-5 h-5" />
+            Audit complete!
+          </div>
           <button
             onClick={handleManualComplete}
-            className="px-6 py-3 bg-green-600 hover:bg-green-500 text-white rounded-lg font-medium transition-colors flex items-center gap-2 shadow-lg shadow-green-900/20"
+            className="px-6 py-2.5 bg-green-600 hover:bg-green-500 text-white rounded-xl font-semibold transition-all shadow-lg shadow-green-900/20 flex items-center gap-2 hover:-translate-y-0.5"
           >
             View Report →
           </button>

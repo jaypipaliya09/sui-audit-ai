@@ -26,19 +26,24 @@ export class AuditRepository {
 
   // ─── Create ──────────────────────────────────────────────────────────────────
 
-  async createAudit(contractName: string, contractCode: string) {
+  async createAudit(contractName: string, contractCode: string, txDigest?: string) {
     const audit = await this.prisma.audit.create({
       data: {
         contractName,
         contractCode,
         status: AuditStatus.QUEUED,
+        ...(txDigest && { txDigest }),
       },
     });
-    this.logger.log(`Created audit record [${audit.id}] for "${contractName}"`);
+    this.logger.log(`Created audit record [${audit.id}] for "${contractName}"${txDigest ? ` with payment ${txDigest}` : ''}`);
     return audit;
   }
 
   // ─── Read ────────────────────────────────────────────────────────────────────
+
+  async findByTxDigest(txDigest: string) {
+    return this.prisma.audit.findUnique({ where: { txDigest } });
+  }
 
   async findById(id: string) {
     return this.prisma.audit.findUnique({ where: { id } });
