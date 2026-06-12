@@ -153,7 +153,7 @@ export default function Home() {
     try {
       // Build and sign a 1 SUI payment transaction via the Slush wallet extension
       const tx = new TransactionBlock();
-      const TREASURY_ADDRESS = '0x69fb32ef40f1954a2279041bb2d90c4e7d289dd10486409ae81e7ef39467d8b0';
+      const TREASURY_ADDRESS = process.env.NEXT_PUBLIC_DEMO_WALLET_ADDRESS || '0x69fb32ef40f1954a2279041bb2d90c4e7d289dd10486409ae81e7ef39467d8b0';
 
       // Split 1 SUI (10^9 MIST) from gas coin and transfer to treasury
       const [coin] = tx.splitCoins(tx.gas, [tx.pure(1_000_000_000)]);
