@@ -21,7 +21,7 @@ const config: Config = {
       },
       animation: {
         "glow-pulse": "glow-pulse 3s ease-in-out infinite",
-        "fade-in-up": "fadeInUp 0.6s ease forwards",
+        "fade-in-up": "fadeInUp 0.6s ease both",
         float: "float-up 4s ease-in-out infinite",
         "gradient-shift": "gradient-shift 4s ease infinite",
         shimmer: "shimmer 1.8s ease-in-out infinite",

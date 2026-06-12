@@ -11,6 +11,7 @@ import {
 import { ContractEditor } from '@/components/ContractEditor';
 import { RiskBadge } from '@/components/RiskBadge';
 import { SkeletonAuditCard } from '@/components/SkeletonCard';
+import { FadeIn } from '@/components/FadeIn';
 import { useWallet } from '@/lib/walletContext';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 
@@ -104,7 +105,7 @@ const DEMO_AUDITS = [
 export default function Home() {
   const router = useRouter();
   const auditSectionRef = useRef<HTMLDivElement>(null);
-  const { isConnected, saveAudit, address, provider } = useWallet();
+  const { isConnected, saveAudit, address, provider, myAudits } = useWallet();
 
   const [contractCode, setContractCode] = useState('');
   const [contractName, setContractName] = useState('');
@@ -114,25 +115,21 @@ export default function Home() {
   const [auditsLoading, setAuditsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchRecent = async () => {
-      try {
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const res = await fetch(`${API_URL}/reports?limit=6`);
-        if (res.ok) {
-          const data = await res.json();
-          setRecentAudits(data.data && data.data.length > 0 ? data.data : DEMO_AUDITS);
-        } else {
-          setRecentAudits(DEMO_AUDITS);
-        }
-      } catch {
-        // Backend not running — show demo data
-        setRecentAudits(DEMO_AUDITS);
-      } finally {
-        setAuditsLoading(false);
-      }
-    };
-    fetchRecent();
-  }, []);
+    if (isConnected) {
+      const formatted = myAudits.slice(0, 6).map((a) => ({
+        id: a.auditId,
+        blobId: a.blobId,
+        contractName: a.contractName,
+        createdAt: a.createdAt,
+        overallRisk: a.overallRisk || 'COMPLETE',
+        status: 'COMPLETE',
+      }));
+      setRecentAudits(formatted);
+    } else {
+      setRecentAudits([]);
+    }
+    setAuditsLoading(false);
+  }, [isConnected, myAudits]);
 
   const handleSubmit = async () => {
     if (!contractCode || !contractName) return;
@@ -320,7 +317,7 @@ export default function Home() {
 
       {/* ── FEATURES ─────────────────────────────────────────────────── */}
       <section className="py-24 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-16">
+        <FadeIn className="text-center mb-16">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[#30363d] bg-[#161b22] text-gray-400 text-sm font-medium mb-4">
             <Lock className="w-3.5 h-3.5" />
             Enterprise-grade analysis
@@ -331,12 +328,13 @@ export default function Home() {
           <p className="text-gray-500 mt-4 max-w-xl mx-auto">
             From access control to gas optimization — comprehensive analysis built specifically for the Sui Move ecosystem.
           </p>
-        </div>
+        </FadeIn>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {FEATURES.map((feat) => (
-            <div
+          {FEATURES.map((feat, i) => (
+            <FadeIn
               key={feat.title}
+              delay={i * 0.1}
               className={`group relative p-6 rounded-2xl bg-gradient-to-br ${feat.color} border ${feat.border} hover:scale-[1.02] transition-all duration-300 cursor-default`}
             >
               <div className={`w-10 h-10 rounded-xl bg-[#161b22] border ${feat.border} flex items-center justify-center mb-4`}>
@@ -344,7 +342,7 @@ export default function Home() {
               </div>
               <h3 className="font-bold text-white mb-2">{feat.title}</h3>
               <p className="text-sm text-gray-400 leading-relaxed">{feat.description}</p>
-            </div>
+            </FadeIn>
           ))}
         </div>
       </section>
@@ -352,7 +350,7 @@ export default function Home() {
       {/* ── HOW IT WORKS (INLINE PREVIEW) ────────────────────────────── */}
       <section className="py-20 border-y border-[#21262d] bg-[#0a0f14]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-14">
+          <FadeIn className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-14">
             <div>
               <div className="text-blue-400 text-sm font-semibold uppercase tracking-widest mb-3">The Process</div>
               <h2 className="text-3xl md:text-4xl font-black text-white tracking-tight">How It Works</h2>
@@ -363,14 +361,14 @@ export default function Home() {
             >
               Full explanation <ChevronRight className="w-4 h-4" />
             </Link>
-          </div>
+          </FadeIn>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 relative">
             {/* Connector line */}
-            <div className="hidden lg:block absolute top-[26px] left-[12.5%] right-[12.5%] h-px bg-gradient-to-r from-transparent via-[#30363d] to-transparent" />
+            <FadeIn className="hidden lg:block absolute top-[26px] left-[12.5%] right-[12.5%] h-px bg-gradient-to-r from-transparent via-[#30363d] to-transparent" />
 
             {HOW_STEPS.map((step, idx) => (
-              <div key={step.step} className="relative flex flex-col items-center text-center group">
+              <FadeIn delay={idx * 0.15} key={step.step} className="relative flex flex-col items-center text-center group">
                 <div className="relative w-12 h-12 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/30 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform z-10">
                   <step.icon className="w-5 h-5 text-blue-400" />
                   <div className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center text-white text-[10px] font-black">
@@ -379,12 +377,12 @@ export default function Home() {
                 </div>
                 <h3 className="font-bold text-white mb-2">{step.title}</h3>
                 <p className="text-sm text-gray-500 leading-relaxed">{step.desc}</p>
-              </div>
+              </FadeIn>
             ))}
           </div>
 
           {/* Vulnerability Categories */}
-          <div className="mt-16 p-6 rounded-2xl bg-[#161b22] border border-[#21262d]">
+          <FadeIn delay={0.4} className="mt-16 p-6 rounded-2xl bg-[#161b22] border border-[#21262d]">
             <div className="flex items-center gap-2 mb-5">
               <AlertTriangle className="w-4 h-4 text-orange-400" />
               <span className="text-sm font-semibold text-gray-300">14 Vulnerability Categories Analyzed</span>
@@ -399,22 +397,22 @@ export default function Home() {
                 </span>
               ))}
             </div>
-          </div>
+          </FadeIn>
         </div>
       </section>
 
       {/* ── AUDIT EDITOR SECTION ─────────────────────────────────────── */}
       <section id="audit" ref={auditSectionRef} className="py-24 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12">
+        <FadeIn className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-black text-white tracking-tight mb-4">
             Audit Your Contract Now
           </h2>
           <p className="text-gray-500 max-w-xl mx-auto">
             Paste your Sui Move code or load one of the demo contracts. Results appear in under 60 seconds.
           </p>
-        </div>
+        </FadeIn>
 
-        <div className="bg-[#161b22] border border-[#21262d] rounded-2xl shadow-2xl overflow-hidden">
+        <FadeIn delay={0.2} className="bg-[#161b22] border border-[#21262d] rounded-2xl shadow-2xl overflow-hidden">
           {/* Editor toolbar */}
           <div className="flex items-center gap-2 px-4 py-3 border-b border-[#21262d] bg-[#0d1117]">
             <div className="w-3 h-3 rounded-full bg-red-500/70" />
@@ -495,13 +493,13 @@ export default function Home() {
               ))}
             </div>
           </div>
-        </div>
+        </FadeIn>
       </section>
 
       {/* ── RECENT AUDITS ────────────────────────────────────────────── */}
       <section className="pb-24 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Recent Audits Section Header */}
-        <div className="flex items-center justify-between mb-8">
+        <FadeIn className="flex items-center justify-between mb-8">
           <h2 className="text-2xl font-black text-white tracking-tight">Recent Audits</h2>
           <div className="flex items-center gap-3">
             {isConnected && (
@@ -512,20 +510,21 @@ export default function Home() {
                 My Audits <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             )}
-            <span className="text-sm text-gray-500">Live from the network</span>
+            <span className="text-sm text-gray-500">Your recent audits</span>
           </div>
-        </div>
+        </FadeIn>
 
         {auditsLoading ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <FadeIn delay={0.2} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[...Array(6)].map((_, i) => (
               <SkeletonAuditCard key={i} />
             ))}
-          </div>
+          </FadeIn>
         ) : recentAudits.length > 0 ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {recentAudits.map((audit) => (
-              <div
+            {recentAudits.map((audit, idx) => (
+              <FadeIn
+                delay={idx * 0.1}
                 key={audit.id}
                 onClick={() => audit.blobId && router.push(`/report/${audit.blobId}`)}
                 className={`group p-4 rounded-xl border border-[#21262d] bg-[#161b22] hover:bg-[#1c2128] hover:border-[#30363d] transition-all duration-200 ${audit.blobId ? 'cursor-pointer hover:-translate-y-0.5' : 'cursor-default'}`}
@@ -545,11 +544,11 @@ export default function Home() {
                     {audit.blobId ? `${audit.blobId.slice(0, 10)}…` : (audit.id?.startsWith('d') ? 'Demo' : 'Processing…')}
                   </span>
                 </div>
-              </div>
+              </FadeIn>
             ))}
           </div>
         ) : (
-          <div className="text-center py-16 border border-dashed border-[#30363d] rounded-2xl">
+          <FadeIn delay={0.2} className="text-center py-16 border border-dashed border-[#30363d] rounded-2xl">
             <Shield className="w-10 h-10 text-gray-700 mx-auto mb-4" />
             <p className="text-gray-600 text-sm">No audits yet — be the first!</p>
             <button
@@ -558,7 +557,7 @@ export default function Home() {
             >
               Run your first audit →
             </button>
-          </div>
+          </FadeIn>
         )}
       </section>
     </main>

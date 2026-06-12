@@ -5,6 +5,7 @@ import {
   AlertTriangle, ChevronDown, CheckCircle2, ArrowRight, Globe,
   GitBranch, AlertCircle, Cpu, Clock, Share2,
 } from 'lucide-react';
+import { FadeIn } from '@/components/FadeIn';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -191,7 +192,7 @@ export default function HowItWorksPage() {
       {/* ── STEP-BY-STEP ───────────────────────────────────────────── */}
       <section className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-20 space-y-24">
         {STEPS.map((step, idx) => (
-          <div
+          <FadeIn
             key={step.number}
             className={`flex flex-col ${idx % 2 === 0 ? 'lg:flex-row' : 'lg:flex-row-reverse'} gap-12 items-start`}
           >
@@ -246,14 +247,14 @@ export default function HowItWorksPage() {
                 </div>
               )}
             </div>
-          </div>
+          </FadeIn>
         ))}
       </section>
 
       {/* ── VULNERABILITY CATEGORIES ────────────────────────────────── */}
       <section className="border-y border-[#21262d] bg-[#0a0f14] py-20">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
+          <FadeIn className="text-center mb-12">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[#30363d] bg-[#161b22] text-gray-400 text-sm font-medium mb-4">
               <AlertTriangle className="w-3.5 h-3.5 text-orange-400" />
               What gets analyzed
@@ -262,63 +263,43 @@ export default function HowItWorksPage() {
             <p className="text-gray-500 mt-3 max-w-xl mx-auto text-sm">
               Built specifically for the Sui Move execution model, covering the most common and dangerous patterns found in production contracts.
             </p>
-          </div>
+          </FadeIn>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {VULN_CATEGORIES.map((cat) => (
-              <div
+            {VULN_CATEGORIES.map((cat, i) => (
+              <FadeIn
+                delay={i * 0.1}
                 key={cat.name}
                 className="p-4 rounded-xl border border-[#21262d] bg-[#161b22] hover:border-[#30363d] hover:bg-[#1c2128] transition-all"
               >
                 <cat.icon className={`w-5 h-5 ${cat.color} mb-3`} />
                 <div className="font-semibold text-gray-200 text-sm mb-1">{cat.name}</div>
                 <div className="text-xs text-gray-500 leading-relaxed">{cat.desc}</div>
-              </div>
+              </FadeIn>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── TECH STACK ──────────────────────────────────────────────── */}
-      <section className="py-20 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-black text-white tracking-tight">Under the Hood</h2>
-          <p className="text-gray-500 mt-3 text-sm">The technology powering SuiAudit AI</p>
-        </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          {[
-            { name: 'Next.js 14', role: 'Frontend', icon: '⚡' },
-            { name: 'NestJS', role: 'Backend API', icon: '🦅' },
-            { name: 'Claude Sonnet 4', role: 'AI Analysis', icon: '🤖' },
-            { name: 'BullMQ', role: 'Job Queue', icon: '🐂' },
-            { name: 'PostgreSQL', role: 'Database', icon: '🐘' },
-            { name: 'Walrus', role: 'Storage', icon: '🌊' },
-          ].map((tech) => (
-            <div key={tech.name} className="p-4 rounded-xl border border-[#21262d] bg-[#161b22] text-center hover:border-[#30363d] transition-colors">
-              <div className="text-2xl mb-2">{tech.icon}</div>
-              <div className="text-xs font-bold text-gray-300">{tech.name}</div>
-              <div className="text-xs text-gray-600 mt-0.5">{tech.role}</div>
-            </div>
-          ))}
-        </div>
-      </section>
 
       {/* ── FAQ ─────────────────────────────────────────────────────── */}
       <section className="py-16 max-w-3xl mx-auto px-4 sm:px-6">
-        <div className="text-center mb-12">
+        <FadeIn className="text-center mb-12">
           <h2 className="text-3xl font-black text-white tracking-tight">Frequently Asked Questions</h2>
-        </div>
+        </FadeIn>
         <div className="space-y-3">
-          {FAQS.map((faq) => (
-            <FaqItem key={faq.q} q={faq.q} a={faq.a} />
+          {FAQS.map((faq, idx) => (
+            <FadeIn key={faq.q} delay={idx * 0.1}>
+              <FaqItem q={faq.q} a={faq.a} />
+            </FadeIn>
           ))}
         </div>
       </section>
 
       {/* ── CTA ─────────────────────────────────────────────────────── */}
       <section className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
-        <div className="relative overflow-hidden rounded-3xl border border-blue-500/20 bg-gradient-to-br from-blue-500/10 via-purple-500/5 to-cyan-500/10 p-12 text-center">
+        <FadeIn delay={0.2} className="relative overflow-hidden rounded-3xl border border-blue-500/20 bg-gradient-to-br from-blue-500/10 via-purple-500/5 to-cyan-500/10 p-12 text-center">
           <div className="absolute inset-0 pointer-events-none">
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[200px] bg-blue-600/10 rounded-full blur-[80px]" />
           </div>
@@ -339,7 +320,7 @@ export default function HowItWorksPage() {
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
-        </div>
+        </FadeIn>
       </section>
     </main>
   );
