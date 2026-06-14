@@ -1,75 +1,42 @@
-import {
-  ExceptionFilter,
-  Catch,
-  ArgumentsHost,
-  HttpException,
-  HttpStatus,
-  Logger,
-} from '@nestjs/common';
-import { Request, Response } from 'express';
+import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
+import { AppLogger } from '../logger/logger.service.js';
 
-/**
- * Global exception filter that converts all thrown exceptions into a
- * consistent JSON error envelope:
- *
- * {
- *   statusCode: 400,
- *   error:      "Bad Request",
- *   message:    "Contract code must contain the 'module' keyword",
- *   path:       "/audit/submit",
- *   timestamp:  "2026-06-10T06:00:00.000Z"
- * }
- */
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
-  private readonly logger = new Logger(HttpExceptionFilter.name);
+  constructor(private readonly logger: AppLogger) {}
 
-  catch(exception: unknown, host: ArgumentsHost): void {
+  catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
-    const response = ctx.getResponse<Response>();
-    const request = ctx.getRequest<Request>();
+    const response = ctx.getResponse();
+    const request = ctx.getRequest();
 
-    let statusCode = HttpStatus.INTERNAL_SERVER_ERROR;
-    let error = 'Internal Server Error';
-    let message: string | string[] = 'An unexpected error occurred';
+    const status =
+      exception instanceof HttpException
+        ? exception.getStatus()
+        : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    if (exception instanceof HttpException) {
-      statusCode = exception.getStatus();
-      const exceptionResponse = exception.getResponse();
+    const message =
+      exception instanceof HttpException
+        ? exception.getResponse()
+        : 'Internal server error';
 
-      if (typeof exceptionResponse === 'string') {
-        message = exceptionResponse;
-        error = exception.name;
-      } else if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
-        const res = exceptionResponse as Record<string, unknown>;
-        message = (res.message as string | string[]) ?? exception.message;
-        error = (res.error as string) ?? exception.name;
-      }
-    } else if (exception instanceof Error) {
-      message = exception.message;
-      error = exception.name;
-    }
-
-    const body = {
-      statusCode,
-      error,
-      message,
-      path: request.url,
+    const errorResponse = {
+      statusCode: status,
       timestamp: new Date().toISOString(),
+      path: request.url,
+      message: typeof message === 'object' && message !== null && 'message' in message 
+        ? (message as any).message 
+        : message,
+      error: typeof message === 'object' && message !== null && 'error' in message
+        ? (message as any).error
+        : exception instanceof Error ? exception.name : 'UnknownError'
     };
 
-    // Log 5xx as errors, 4xx as warnings
-    if (statusCode >= 500) {
-      this.logger.error(
-        `[${request.method}] ${request.url} → ${statusCode}`,
-        exception instanceof Error ? exception.stack : String(exception),
-      );
-    } else {
-      this.logger.warn(
-        `[${request.method}] ${request.url} → ${statusCode}: ${JSON.stringify(message)}`,
-      );
+    if (status >= 500) {
+      this.logger.error(`Critical 5xx Error on ${request.method} ${request.url}: ${exception instanceof Error ? exception.stack : JSON.stringify(exception)}`);
+      // Optionally trigger alert webhook here
     }
 
-    response.status(statusCode).json(body);
+    response.status(status).json(errorResponse);
   }
 }

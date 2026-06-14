@@ -1,43 +1,47 @@
-import {
-  Injectable,
-  NestInterceptor,
-  ExecutionContext,
-  CallHandler,
-  Logger,
-} from '@nestjs/common';
+import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
-import { Request, Response } from 'express';
+import { AppLogger } from '../logger/logger.service.js';
 
-/**
- * Logs every incoming request and its response time.
- *
- * Output format:
- *   → [POST] /audit/submit
- *   ✓ [POST] /audit/submit 202 — 1234ms
- */
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
-  private readonly logger = new Logger('HTTP');
+  constructor(private readonly logger: AppLogger) {}
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
-    const req = context.switchToHttp().getRequest<Request>();
-    const res = context.switchToHttp().getResponse<Response>();
-    const { method, url } = req;
-    const start = Date.now();
+  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+    const ctx = context.switchToHttp();
+    const req = ctx.getRequest();
+    const res = ctx.getResponse();
 
-    this.logger.log(`→ [${method}] ${url}`);
+    const method = req.method;
+    const path = req.originalUrl || req.url;
+    const userId = req.user?.sub || req.user?.id;
+    const now = Date.now();
 
     return next.handle().pipe(
       tap({
         next: () => {
-          const ms = Date.now() - start;
-          this.logger.log(`✓ [${method}] ${url} ${res.statusCode} — ${ms}ms`);
+          const statusCode = res.statusCode;
+          const latencyMs = Date.now() - now;
+
+          this.logger.httpRequest({
+            method,
+            path,
+            userId,
+            statusCode,
+            latencyMs,
+          });
         },
-        error: () => {
-          const ms = Date.now() - start;
-          this.logger.warn(`✗ [${method}] ${url} — ${ms}ms`);
-        },
+        error: (error: any) => {
+          const statusCode = error.status || 500;
+          const latencyMs = Date.now() - now;
+          this.logger.httpRequest({
+            method,
+            path,
+            userId,
+            statusCode,
+            latencyMs,
+          });
+        }
       }),
     );
   }

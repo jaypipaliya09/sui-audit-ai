@@ -21,6 +21,7 @@ import { OnChainModule } from './modules/on-chain/on-chain.module.js';
 import { GitHubModule } from './modules/github/github.module.js';
 import { RepoAuditModule } from './modules/repo-audit/repo-audit.module.js';
 import { EmailModule } from './modules/email/email.module.js';
+import { LoggerModule } from './common/logger/logger.module.js';
 
 @Module({
   imports: [
@@ -79,6 +80,7 @@ import { EmailModule } from './modules/email/email.module.js';
     GitHubModule,
     RepoAuditModule,
     EmailModule,
+    LoggerModule,
   ],
   controllers: [AppController, HealthController],
   providers: [

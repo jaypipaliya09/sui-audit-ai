@@ -5,49 +5,64 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 
-const MAX_CONTRACT_SIZE_BYTES = 51_200; // 50 KB
+const MAX_CONTRACT_SIZE_BYTES = 50 * 1024; // 50 KB
 
 /**
- * MoveValidationPipe performs lightweight static validation on a raw
+ * MoveValidationPipe performs static validation on a raw
  * Move contract string before it reaches the service layer:
  *
- * 1. Must be a string
- * 2. Must contain the `module` keyword (basic Move syntax check)
- * 3. Must not exceed 50 KB
- * 4. Strips null bytes (security hygiene)
- *
- * Apply per-route with @UsePipes(MoveValidationPipe) or directly in
- * a @Body() parameter: @Body('contractCode', MoveValidationPipe)
+ * a) Size: Buffer.byteLength(code, 'utf8') > 50 * 1024 → throw 400
+ * b) Must contain 'module' or 'script' keyword → throw 400
+ * c) Prompt injection patterns
+ * d) Check for suspicious base64 blobs
+ * e) Return sanitized value
  */
 @Injectable()
 export class MoveValidationPipe implements PipeTransform<string, string> {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   transform(value: unknown, _metadata: ArgumentMetadata): string {
-    // 1. Type check
     if (typeof value !== 'string') {
-      throw new BadRequestException(
-        'Contract code must be a string',
-      );
+      throw new BadRequestException('Contract code must be a string');
     }
 
-    // 2. Strip null bytes (security)
-    const sanitized = value.replace(/\0/g, '');
+    let sanitized = value.replace(/\0/g, '');
 
-    // 3. Size check (bytes, not chars — for multi-byte safety use Buffer)
+    // a) Size check
     const sizeBytes = Buffer.byteLength(sanitized, 'utf8');
     if (sizeBytes > MAX_CONTRACT_SIZE_BYTES) {
-      throw new BadRequestException(
-        `Contract code exceeds the 50KB limit (received ${Math.round(sizeBytes / 1024)}KB)`,
-      );
+      throw new BadRequestException(`Contract code exceeds the 50KB limit (received ${Math.round(sizeBytes / 1024)}KB)`);
     }
 
-    // 4. Basic Move syntax check — must contain the `module` keyword
-    // Matches "module" as a standalone word (not inside another identifier)
-    if (!/\bmodule\b/.test(sanitized)) {
-      throw new BadRequestException(
-        "Contract code does not appear to be valid Move — missing the 'module' keyword",
-      );
+    // b) Must contain 'module' or 'script' keyword
+    if (!/\bmodule\b/.test(sanitized) && !/\bscript\b/.test(sanitized)) {
+      throw new BadRequestException("Contract code does not appear to be valid Move — missing 'module' or 'script' keyword");
     }
+
+    // c) Prompt injection patterns (case insensitive)
+    const promptInjectionPatterns = [
+      /ignore.*previous.*instructions/i,
+      /system.*prompt/i,
+      /you are now/i,
+      /forget.*instructions/i,
+      /disregard.*above/i,
+      /new persona/i,
+    ];
+
+    for (const pattern of promptInjectionPatterns) {
+      if (pattern.test(sanitized)) {
+        throw new BadRequestException('Invalid contract content detected');
+      }
+    }
+
+    // d) Check for suspicious base64 blobs (length > 1000 chars with no spaces)
+    // A simple regex: matches >1000 contiguous base64-like characters
+    const base64Pattern = /(?:[A-Za-z0-9+/]{1000,})(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?/;
+    if (base64Pattern.test(sanitized)) {
+      throw new BadRequestException('Invalid contract content detected: suspicious encoded blob');
+    }
+
+    // e) Return sanitized value (trimmed, normalized line endings)
+    sanitized = sanitized.replace(/\r\n/g, '\n').trim();
 
     return sanitized;
   }

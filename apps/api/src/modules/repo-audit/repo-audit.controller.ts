@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Param, Query, Body, UseGuards, Sse, Header, NotFoundException } from '@nestjs/common';
+import { Controller, Post, Get, Param, Query, Body, UseGuards, Sse, Header, NotFoundException, ParseUUIDPipe } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { Observable, of } from 'rxjs';
@@ -64,15 +64,17 @@ export class RepoAuditController {
     const repoInfo = JSON.parse(cached);
     const filesCount = repoInfo.moveFiles.length;
 
+    const userId = user?.sub || user?.id;
+
     // Check quota
-    const allowed = await this.billingService.checkAndIncrementUsage(user.userId, filesCount);
+    const allowed = await this.billingService.checkAndIncrementUsage(userId, filesCount);
     if (!allowed) {
       throw new NotFoundException('Insufficient audit credits. Please upgrade your plan.');
     }
 
     // Create RepoAudit record
     const repoAudit = await this.repoAuditService.createRepoAudit({
-      userId: user.userId,
+      userId,
       repoUrl: `https://github.com/${repoInfo.owner}/${repoInfo.name}`,
       repoOwner: repoInfo.owner,
       repoName: repoInfo.name,
@@ -91,7 +93,7 @@ export class RepoAuditController {
       defaultBranch: repoInfo.defaultBranch,
       projectTrack: body.projectTrack,
       moveFiles: repoInfo.moveFiles,
-      userId: user.userId,
+      userId,
     });
 
     // Clear scan cache
@@ -108,7 +110,7 @@ export class RepoAuditController {
   @Header('Cache-Control', 'no-cache')
   @Header('X-Accel-Buffering', 'no')
   @Header('Connection', 'keep-alive')
-  async statusStream(@Param('id') id: string): Promise<Observable<MessageEvent>> {
+  async statusStream(@Param('id', ParseUUIDPipe) id: string): Promise<Observable<MessageEvent>> {
     const repoAudit = await this.repoAuditService.findById(id);
     if (!repoAudit) {
       throw new NotFoundException(`Repo audit "${id}" not found`);
@@ -140,7 +142,7 @@ export class RepoAuditController {
   }
 
   @Get(':id/report')
-  async getReport(@Param('id') id: string) {
+  async getReport(@Param('id', ParseUUIDPipe) id: string) {
     const repoAudit = await this.repoAuditService.findById(id);
     if (!repoAudit) {
       throw new NotFoundException(`Repo audit "${id}" not found`);
@@ -155,6 +157,7 @@ export class RepoAuditController {
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
   ) {
-    return this.repoAuditService.findByUserId(user.userId, page, limit);
+    const userId = user?.sub || user?.id;
+    return this.repoAuditService.findByUserId(userId, page, limit);
   }
 }

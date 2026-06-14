@@ -12,7 +12,8 @@ export class BillingController {
   @Post('checkout')
   @UseGuards(JwtAuthGuard)
   async createCheckout(@CurrentUser() user: any, @Body() body: { priceId: string }) {
-    return this.billingService.createCheckoutSession(user.userId, body.priceId);
+    const userId = user?.sub || user?.id;
+    return this.billingService.createCheckoutSession(userId, body.priceId);
   }
 
   @Post('webhook')
@@ -31,12 +32,14 @@ export class BillingController {
   @Get('portal')
   @UseGuards(JwtAuthGuard)
   async createPortal(@CurrentUser() user: any) {
-    return this.billingService.createPortalSession(user.userId);
+    const userId = user?.sub || user?.id;
+    return this.billingService.createPortalSession(userId);
   }
 
   @Get('status')
   @UseGuards(JwtAuthGuard)
   async getStatus(@CurrentUser() user: any) {
-    return this.billingService.getStatus(user.userId);
+    const userId = user?.sub || user?.id;
+    return this.billingService.getStatus(userId);
   }
 }

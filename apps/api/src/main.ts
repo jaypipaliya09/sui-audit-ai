@@ -3,17 +3,37 @@ import { ValidationPipe, Logger } from '@nestjs/common';
 import { AppModule } from './app.module.js';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter.js';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor.js';
+import { AppLogger } from './common/logger/logger.service.js';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 
 const logger = new Logger('Bootstrap');
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { rawBody: true });
 
+  // ── Logger ───────────────────────────────────────────────────────────────
+  const appLogger = app.get(AppLogger);
+  app.useLogger(appLogger);
+
+  // ── Security Middleware ──────────────────────────────────────────────────
+  app.use(helmet({ contentSecurityPolicy: true, crossOriginEmbedderPolicy: false }));
+  
+  app.use(
+    rateLimit({
+      windowMs: 15 * 60 * 1000, // 15 minutes
+      max: 200, // Limit each IP to 200 requests per `window`
+      standardHeaders: true,
+      legacyHeaders: false,
+    }),
+  );
+
   // ── CORS ─────────────────────────────────────────────────────────────────
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: [process.env.FRONTEND_URL || 'http://localhost:3000'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,
+    maxAge: 3600,
   });
 
   // ── Global Validation Pipe ────────────────────────────────────────────────
@@ -21,7 +41,7 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
-      forbidNonWhitelisted: false,
+      forbidNonWhitelisted: true,
       transform: true,
       transformOptions: { enableImplicitConversion: true },
     }),
@@ -29,11 +49,11 @@ async function bootstrap() {
 
   // ── Global Exception Filter ───────────────────────────────────────────────
   // Converts all thrown exceptions into a consistent JSON error envelope
-  app.useGlobalFilters(new HttpExceptionFilter());
+  app.useGlobalFilters(new HttpExceptionFilter(appLogger));
 
   // ── Global Logging Interceptor ────────────────────────────────────────────
   // Logs every request with method, path, status, and response time
-  app.useGlobalInterceptors(new LoggingInterceptor());
+  app.useGlobalInterceptors(new LoggingInterceptor(appLogger));
 
   const port = process.env.PORT || 3001;
   await app.listen(port);

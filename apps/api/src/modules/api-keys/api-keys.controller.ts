@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Delete, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Delete, Param, Body, UseGuards, ParseUUIDPipe } from '@nestjs/common';
 import { ApiKeysService } from './api-keys.service.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
@@ -11,8 +11,9 @@ export class ApiKeysController {
 
   @Post()
   async create(@CurrentUser() user: any, @Body() body: { name: string; scopes?: string[] }) {
+    const userId = user?.sub || user?.id;
     const { rawKey, apiKey } = await this.apiKeysService.createKey(
-      user.userId,
+      userId,
       body.name,
       body.scopes || [],
     );
@@ -30,12 +31,14 @@ export class ApiKeysController {
 
   @Get()
   async list(@CurrentUser() user: any) {
-    return this.apiKeysService.listKeys(user.userId);
+    const userId = user?.sub || user?.id;
+    return this.apiKeysService.listKeys(userId);
   }
 
   @Delete(':id')
-  async revoke(@CurrentUser() user: any, @Param('id') id: string) {
-    await this.apiKeysService.revokeKey(id, user.userId);
+  async revoke(@CurrentUser() user: any, @Param('id', ParseUUIDPipe) id: string) {
+    const userId = user?.sub || user?.id;
+    await this.apiKeysService.revokeKey(id, userId);
     return { message: 'API Key revoked successfully' };
   }
 }

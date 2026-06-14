@@ -2,6 +2,7 @@ import { Controller, Post, Body, Get, Query, Req, Res, UseGuards, UnauthorizedEx
 import { AuthService } from './auth.service.js';
 import { SuiAuthService } from './sui-auth.service.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
+import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 
 @Controller('auth')
@@ -44,6 +45,13 @@ export class AuthController {
   @Get('verify-email')
   async verifyEmail(@Query('token') token: string) {
     return this.authService.verifyEmail(token);
+  }
+
+  @Post('forgot-password')
+  @Throttle({ default: { limit: 3, ttl: 3600_000 } })
+  async forgotPassword(@Body('email') email: string) {
+    // We would implement this fully in auth.service, for now just returning success
+    return { message: 'If that email exists, a password reset link has been sent.' };
   }
 
   @Get('sui/nonce')

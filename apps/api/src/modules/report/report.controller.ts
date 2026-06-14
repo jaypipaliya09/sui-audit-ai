@@ -5,6 +5,7 @@ import {
   Query,
   ParseIntPipe,
   DefaultValuePipe,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ReportService } from './report.service.js';
 
@@ -49,7 +50,7 @@ export class ReportController {
   // ─── GET /reports/:id ─────────────────────────────────────────────────────
 
   @Get(':id')
-  async findOne(@Param('id') id: string) {
+  async findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.reportService.findById(id);
   }
 }

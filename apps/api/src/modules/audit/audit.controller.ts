@@ -8,9 +8,9 @@ import {
   NotFoundException,
   Param,
   Post,
-  Req,
   Sse,
   UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { Observable, of } from 'rxjs';
@@ -22,6 +22,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { FlexibleAuthGuard } from '../../common/guards/flexible-auth.guard.js';
 import { RateLimitGuard } from '../../common/guards/rate-limit.guard.js';
 import { AuditQuotaGuard } from './guards/audit-quota.guard.js';
+import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 
 // String constants matching Prisma AuditStatus enum values
 const AuditStatus = {
@@ -47,8 +48,8 @@ export class AuditController {
   @HttpCode(HttpStatus.ACCEPTED)
   @Throttle({ default: { limit: 20, ttl: 3600_000 } })
   @UseGuards(FlexibleAuthGuard, RateLimitGuard, AuditQuotaGuard)
-  async submit(@Body() dto: SubmitAuditDto, @Req() req: any) {
-    const userId = req.user?.sub;
+  async submit(@Body() dto: SubmitAuditDto, @CurrentUser() user: any) {
+    const userId = user?.sub || user?.id;
     const { auditId } = await this.auditService.submitAudit(dto, userId);
     return {
       auditId,
@@ -66,7 +67,7 @@ export class AuditController {
   @Header('Cache-Control', 'no-cache')
   @Header('X-Accel-Buffering', 'no')
   @Header('Connection', 'keep-alive')
-  async statusStream(@Param('id') id: string): Promise<Observable<MessageEvent>> {
+  async statusStream(@Param('id', ParseUUIDPipe) id: string): Promise<Observable<MessageEvent>> {
     const audit = await this.auditRepository.findById(id);
 
     if (!audit) {
@@ -109,7 +110,7 @@ export class AuditController {
   // ─── GET /audit/:id/report ────────────────────────────────────────────────
 
   @Get(':id/report')
-  async getReport(@Param('id') id: string) {
+  async getReport(@Param('id', ParseUUIDPipe) id: string) {
     const audit = await this.auditRepository.findById(id);
     if (!audit) {
       throw new NotFoundException(`Audit "${id}" not found`);
