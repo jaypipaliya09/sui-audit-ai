@@ -14,6 +14,7 @@ import { AuditModule } from './modules/audit/audit.module.js';
 import { HealthController } from './modules/health/health.controller.js';
 import { UsersModule } from './modules/users/users.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
+import { BillingModule } from './modules/billing/billing.module.js';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { AuthModule } from './modules/auth/auth.module.js';
     AuditModule,
     UsersModule,
     AuthModule,
+    BillingModule,
   ],
   controllers: [AppController, HealthController],
   providers: [
