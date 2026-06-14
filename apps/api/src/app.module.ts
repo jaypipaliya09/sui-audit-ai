@@ -12,6 +12,8 @@ import { WalrusModule } from './modules/walrus/walrus.module.js';
 import { ReportModule } from './modules/report/report.module.js';
 import { AuditModule } from './modules/audit/audit.module.js';
 import { HealthController } from './modules/health/health.controller.js';
+import { UsersModule } from './modules/users/users.module.js';
+import { AuthModule } from './modules/auth/auth.module.js';
 
 @Module({
   imports: [
@@ -61,6 +63,8 @@ import { HealthController } from './modules/health/health.controller.js';
     WalrusModule,
     ReportModule,
     AuditModule,
+    UsersModule,
+    AuthModule,
   ],
   controllers: [AppController, HealthController],
   providers: [

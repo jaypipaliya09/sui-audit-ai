@@ -13,7 +13,7 @@ import { RiskBadge } from '@/components/RiskBadge';
 import { SkeletonAuditCard } from '@/components/SkeletonCard';
 import { FadeIn } from '@/components/FadeIn';
 import { useWallet } from '@/lib/walletContext';
-import { TransactionBlock } from '@mysten/sui.js/transactions';
+import { Transaction } from '@mysten/sui/transactions';
 
 /* ─── Feature Cards Data ─────────────────────────────────────────── */
 const FEATURES = [
@@ -137,7 +137,7 @@ export default function Home() {
       setError('Please connect your wallet to pay for the audit (1 SUI).');
       return;
     }
-    
+
     if (!provider) {
       setError('Wallet connection lost. Please disconnect and reconnect your wallet to sign the transaction.');
       return;
@@ -149,12 +149,14 @@ export default function Home() {
 
     try {
       // Build and sign a 1 SUI payment transaction via the Slush wallet extension
-      const tx = new TransactionBlock();
+      const tx = new Transaction();
       const TREASURY_ADDRESS = process.env.NEXT_PUBLIC_DEMO_WALLET_ADDRESS || '0x69fb32ef40f1954a2279041bb2d90c4e7d289dd10486409ae81e7ef39467d8b0';
 
+      tx.setSender(address);
+
       // Split 1 SUI (10^9 MIST) from gas coin and transfer to treasury
-      const [coin] = tx.splitCoins(tx.gas, [tx.pure(1_000_000_000)]);
-      tx.transferObjects([coin], tx.pure(TREASURY_ADDRESS));
+      const [coin] = tx.splitCoins(tx.gas, [tx.pure.u64(1_000_000_000)]);
+      tx.transferObjects([coin], tx.pure.address(TREASURY_ADDRESS));
 
       // 1. Retrieve the active account object from the provider robustly (handling standard, legacy, and session reconnects)
       let account = null;
