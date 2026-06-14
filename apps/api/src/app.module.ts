@@ -18,6 +18,8 @@ import { BillingModule } from './modules/billing/billing.module.js';
 import { ApiKeysModule } from './modules/api-keys/api-keys.module.js';
 import { RateLimitModule } from './modules/rate-limiting/rate-limit.module.js';
 import { OnChainModule } from './modules/on-chain/on-chain.module.js';
+import { GitHubModule } from './modules/github/github.module.js';
+import { RepoAuditModule } from './modules/repo-audit/repo-audit.module.js';
 
 @Module({
   imports: [
@@ -73,6 +75,8 @@ import { OnChainModule } from './modules/on-chain/on-chain.module.js';
     ApiKeysModule,
     RateLimitModule,
     OnChainModule,
+    GitHubModule,
+    RepoAuditModule,
   ],
   controllers: [AppController, HealthController],
   providers: [

@@ -81,6 +81,7 @@ model User {
   emailTokens   EmailVerificationToken[]
   refreshTokens RefreshToken[]
   apiKeys       ApiKey[]
+  repoAudits    RepoAudit[]
 
   @@index([email])
   @@index([suiAddress])
@@ -176,3 +177,74 @@ model ApiKey {
   @@index([userId])
 }
 
+enum ProjectTrack {
+  INSTITUTIONS_CAPITAL_MARKETS
+  AI
+  DEFI
+  GAMING
+  PAYMENTS
+}
+
+enum RepoAuditStatus {
+  SCANNING
+  PREVIEW
+  AUDITING
+  AGGREGATING
+  STORING
+  COMPLETE
+  FAILED
+}
+
+model RepoAudit {
+  id                String          @id @default(uuid())
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  userId            String
+  user              User            @relation(fields: [userId], references: [id])
+  repoUrl           String
+  repoOwner         String
+  repoName          String
+  repoDefaultBranch String
+  commitSha         String?
+  projectTrack      ProjectTrack
+  status            RepoAuditStatus @default(SCANNING)
+  contractsFound    Int             @default(0)
+  contractsAudited  Int             @default(0)
+  overallRisk       RiskLevel?
+  totalFindings     Int             @default(0)
+  criticalCount     Int             @default(0)
+  highCount         Int             @default(0)
+  mediumCount       Int             @default(0)
+  lowCount          Int             @default(0)
+  infoCount         Int             @default(0)
+  blobId            String?         @unique
+  walrusUrl         String?
+  onChainTxDigest   String?
+  crossContractJson Json?
+  contractAudits    ContractAudit[]
+  errorMessage      String?
+
+  @@index([userId])
+}
+
+model ContractAudit {
+  id            String      @id @default(uuid())
+  repoAuditId   String
+  repoAudit     RepoAudit   @relation(fields: [repoAuditId], references: [id])
+  filePath      String
+  fileName      String
+  fileContent   String      @db.Text
+  lineCount     Int
+  status        AuditStatus @default(QUEUED)
+  overallRisk   RiskLevel?
+  findingsJson  Json?
+  criticalCount Int         @default(0)
+  highCount     Int         @default(0)
+  mediumCount   Int         @default(0)
+  lowCount      Int         @default(0)
+  infoCount     Int         @default(0)
+  errorMessage  String?
+  createdAt     DateTime    @default(now())
+
+  @@index([repoAuditId])
+}

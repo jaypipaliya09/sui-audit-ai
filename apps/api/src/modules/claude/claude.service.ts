@@ -33,6 +33,7 @@ export class ClaudeService {
     contractCode: string,
     contractName: string,
     onProgress?: (pct: number, msg: string) => void,
+    projectTrack?: string,
   ): Promise<AuditResult> {
     // ── Phase 1: Call Claude API ──────────────────────────────────────
     onProgress?.(25, 'Connecting to Claude API...');
@@ -49,7 +50,7 @@ export class ClaudeService {
         messages: [
           {
             role: 'user',
-            content: buildUserPrompt(contractCode, contractName),
+            content: buildUserPrompt(contractCode, contractName, projectTrack),
           },
         ],
       });
@@ -166,5 +167,77 @@ export class ClaudeService {
     );
 
     return parsed;
+  }
+
+  /**
+   * Analyze cross-contract risks across multiple audited contracts in a repository.
+   */
+  async analyzeCrossContract(
+    contractResults: { fileName: string; findings: any[]; summary: any }[],
+    projectTrack?: string,
+  ): Promise<any> {
+    const contractSummaries = contractResults.map((c) => ({
+      fileName: c.fileName,
+      findingCount: c.findings.length,
+      overallRisk: c.summary?.overallRisk || 'UNKNOWN',
+      findings: c.findings.map((f: any) => ({
+        title: f.title,
+        severity: f.severity,
+        category: f.category,
+      })),
+    }));
+
+    const trackHint = projectTrack ? `Project Track: ${projectTrack}. ` : '';
+
+    const prompt = `${trackHint}You are analyzing a repository of Sui Move smart contracts. Below is a summary of individual audit findings for each contract file.
+
+Analyze for cross-contract risks, systemic patterns, missing system features, and provide an executive summary.
+
+Respond ONLY with valid JSON matching this schema:
+{
+  "sharedRisks": [{ "title": string, "description": string, "affectedContracts": string[], "severity": string }],
+  "systemicPatterns": [{ "pattern": string, "description": string, "recommendation": string }],
+  "missingSystemFeatures": [{ "feature": string, "description": string, "priority": string }],
+  "auditPriorityOrder": [{ "fileName": string, "reason": string }],
+  "repositoryRisk": "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "CLEAN",
+  "executiveSummary": string
+}
+
+Contract Summaries:
+${JSON.stringify(contractSummaries, null, 2)}`;
+
+    try {
+      const response = await this.client.messages.create({
+        model: this.model,
+        max_tokens: this.maxTokens,
+        messages: [{ role: 'user', content: prompt }],
+      });
+
+      const textBlock = response.content.find(
+        (block): block is Anthropic.TextBlock => block.type === 'text',
+      );
+
+      if (!textBlock) throw new Error('No text content in cross-contract response');
+
+      const cleaned = textBlock.text
+        .replace(/```json\n?/g, '')
+        .replace(/```\n?/g, '')
+        .trim();
+
+      return JSON.parse(cleaned);
+    } catch (error) {
+      this.logger.warn(`Cross-contract analysis failed: ${error}. Using fallback.`);
+      return {
+        sharedRisks: [],
+        systemicPatterns: [],
+        missingSystemFeatures: [],
+        auditPriorityOrder: contractResults.map((c) => ({
+          fileName: c.fileName,
+          reason: 'Default ordering',
+        })),
+        repositoryRisk: 'MEDIUM',
+        executiveSummary: 'Cross-contract analysis was unavailable. Individual contract audits are still valid.',
+      };
+    }
   }
 }

@@ -1,6 +1,7 @@
 // ─── Queue Names ─────────────────────────────────────────────────────────────
 
 export const AUDIT_QUEUE = 'audit-queue';
+export const REPO_AUDIT_QUEUE = 'repo-audit-queue';
 
 // ─── Job Names ────────────────────────────────────────────────────────────────
 

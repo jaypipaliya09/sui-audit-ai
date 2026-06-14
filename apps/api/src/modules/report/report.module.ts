@@ -1,6 +1,7 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module.js';
 import { ReportService } from './report.service.js';
+import { RepoReportService } from './repo-report.service.js';
 import { ReportController } from './report.controller.js';
 
 @Module({
@@ -12,7 +13,7 @@ import { ReportController } from './report.controller.js';
     forwardRef(() => AuditModule),
   ],
   controllers: [ReportController],
-  providers: [ReportService],
-  exports: [ReportService],
+  providers: [ReportService, RepoReportService],
+  exports: [ReportService, RepoReportService],
 })
 export class ReportModule {}
