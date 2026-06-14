@@ -7,8 +7,9 @@ import { RiskBadge } from '@/components/RiskBadge';
 import {
   Loader2, DollarSign, Users, BarChart3, Activity,
   AlertTriangle, Clock, TrendingUp, Zap, Shield,
-  Database, ArrowRight,
+  Database, ArrowRight, Settings, Check
 } from 'lucide-react';
+import { api } from '@/lib/api';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -34,7 +35,10 @@ export default function AdminPage() {
   const router = useRouter();
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [audits, setAudits] = useState<any[]>([]);
+  const [adminUsers, setAdminUsers] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'overview' | 'users'>('overview');
   const [loading, setLoading] = useState(true);
+  const [usersLoading, setUsersLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -51,19 +55,37 @@ export default function AdminPage() {
   useEffect(() => {
     if (!token) return;
 
-    const headers = { Authorization: `Bearer ${token}` };
+    if (activeTab === 'overview') {
+      const headers = { Authorization: `Bearer ${token}` };
+      Promise.all([
+        fetch(`${API_URL}/admin/metrics`, { headers }).then((r) => r.json()),
+        fetch(`${API_URL}/admin/audits?limit=10`, { headers }).then((r) => r.json()),
+      ])
+        .then(([m, a]) => {
+          setMetrics(m);
+          setAudits(a.data || []);
+        })
+        .catch((err) => setError(err.message))
+        .finally(() => setLoading(false));
+    } else if (activeTab === 'users') {
+      setUsersLoading(true);
+      api.getAdminUsers(1, 50)
+        .then((res) => setAdminUsers(res.data || []))
+        .catch((err) => setError(err.message))
+        .finally(() => setUsersLoading(false));
+    }
+  }, [token, activeTab]);
 
-    Promise.all([
-      fetch(`${API_URL}/admin/metrics`, { headers }).then((r) => r.json()),
-      fetch(`${API_URL}/admin/audits?limit=10`, { headers }).then((r) => r.json()),
-    ])
-      .then(([m, a]) => {
-        setMetrics(m);
-        setAudits(a.data || []);
-      })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, [token]);
+  const handlePlanChange = async (userId: string, plan: string) => {
+    try {
+      await api.updateUserPlan(userId, plan);
+      setAdminUsers((prev) => 
+        prev.map((u) => u.id === userId ? { ...u, subscription: { plan } } : u)
+      );
+    } catch (err: any) {
+      alert(err.message || 'Failed to update plan');
+    }
+  };
 
   if (authLoading || loading) {
     return (
@@ -106,15 +128,37 @@ export default function AdminPage() {
     <div className="min-h-screen bg-[#0a0a0a] pt-24 pb-16">
       <div className="max-w-7xl mx-auto px-4 space-y-8">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <Shield className="w-6 h-6 text-indigo-400" />
-            Admin Dashboard
-          </h1>
-          <p className="text-gray-500 text-sm mt-1">Internal metrics and operations.</p>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+              <Shield className="w-6 h-6 text-indigo-400" />
+              Admin Dashboard
+            </h1>
+            <p className="text-gray-500 text-sm mt-1">Internal metrics and operations.</p>
+          </div>
+          <div className="flex bg-[#1a1a1a] rounded-lg p-1 border border-[#2a2a2a]">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'overview' ? 'bg-[#2a2a2a] text-white' : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              Overview
+            </button>
+            <button
+              onClick={() => setActiveTab('users')}
+              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'users' ? 'bg-[#2a2a2a] text-white' : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              Users
+            </button>
+          </div>
         </div>
 
-        {/* Metrics Grid */}
+        {activeTab === 'overview' && (
+          <>
+            {/* Metrics Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           {METRIC_CARDS.map((card) => (
             <div
@@ -192,6 +236,59 @@ export default function AdminPage() {
             </div>
           )}
         </div>
+        </>
+      )}
+
+      {activeTab === 'users' && (
+        <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl overflow-hidden">
+          {usersLoading ? (
+             <div className="py-12 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-indigo-400" /></div>
+          ) : adminUsers.length > 0 ? (
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-[#2a2a2a]">
+                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">User</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Role</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Joined</th>
+                  <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase">Audits</th>
+                  <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase">Plan</th>
+                </tr>
+              </thead>
+              <tbody>
+                {adminUsers.map((u: any) => (
+                  <tr key={u.id} className="border-b border-[#2a2a2a] last:border-0 hover:bg-white/[0.02]">
+                    <td className="px-4 py-3 text-sm text-white">
+                      <div>{u.name}</div>
+                      <div className="text-xs text-gray-500">{u.email}</div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-400">{u.role}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">
+                      {new Date(u.createdAt).toLocaleDateString()}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-400 text-right">
+                      {u._count?.audits || 0}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <select
+                        value={u.subscription?.plan || 'FREE'}
+                        onChange={(e) => handlePlanChange(u.id, e.target.value)}
+                        className="bg-[#0f0f0f] border border-[#2a2a2a] text-white text-xs rounded-lg px-2 py-1.5 focus:border-indigo-500 focus:outline-none"
+                      >
+                        <option value="FREE">FREE</option>
+                        <option value="DEVELOPER">DEVELOPER</option>
+                        <option value="TEAM">TEAM</option>
+                        <option value="ENTERPRISE">ENTERPRISE</option>
+                      </select>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+             <div className="text-center py-12 text-gray-500 text-sm">No users found.</div>
+          )}
+        </div>
+      )}
       </div>
     </div>
   );

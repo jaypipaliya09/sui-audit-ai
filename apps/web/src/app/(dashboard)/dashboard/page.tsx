@@ -7,7 +7,7 @@ import { api } from '@/lib/api';
 import { RiskBadge } from '@/components/RiskBadge';
 import {
   PlusCircle, Clock, ArrowRight, BarChart3,
-  Shield, AlertTriangle, Loader2,
+  Shield, AlertTriangle, Loader2, GitBranch
 } from 'lucide-react';
 
 export default function DashboardPage() {
@@ -43,13 +43,22 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold text-white">Dashboard</h1>
           <p className="text-gray-500 text-sm mt-1">Welcome back, {user?.name || 'User'}</p>
         </div>
-        <Link
-          href="/"
-          className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl transition-all shadow-lg shadow-indigo-500/20 text-sm"
-        >
-          <PlusCircle className="w-4 h-4" />
-          Start New Audit
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/"
+            className="flex items-center gap-2 px-5 py-2.5 bg-[#1a1a1a] hover:bg-[#2a2a2a] border border-[#2a2a2a] text-white font-semibold rounded-xl transition-all text-sm"
+          >
+            <PlusCircle className="w-4 h-4" />
+            Single Contract
+          </Link>
+          <Link
+            href="/repo-audit/new"
+            className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl transition-all shadow-lg shadow-indigo-500/20 text-sm"
+          >
+            <GitBranch className="w-4 h-4" />
+            New Repo Audit
+          </Link>
+        </div>
       </div>
 
       {/* Usage Card */}

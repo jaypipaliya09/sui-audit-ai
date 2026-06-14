@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { RiskBadge } from '@/components/RiskBadge';
-import { Clock, Search, Filter, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Clock, Search, Filter, Loader2, ChevronLeft, ChevronRight, Scale } from 'lucide-react';
 
 const RISK_FILTERS = ['ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'CLEAN'];
 
@@ -15,6 +16,9 @@ export default function HistoryPage() {
   const [total, setTotal] = useState(0);
   const [riskFilter, setRiskFilter] = useState('ALL');
   const [search, setSearch] = useState('');
+  const [compareMode, setCompareMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const router = useRouter();
   const limit = 15;
 
   useEffect(() => {
@@ -35,6 +39,20 @@ export default function HistoryPage() {
   });
 
   const totalPages = Math.ceil(total / limit);
+
+  const toggleSelection = (id: string) => {
+    setSelectedIds((prev) => {
+      if (prev.includes(id)) return prev.filter((i) => i !== id);
+      if (prev.length >= 2) return [prev[1], id];
+      return [...prev, id];
+    });
+  };
+
+  const handleCompareSubmit = () => {
+    if (selectedIds.length === 2) {
+      router.push(`/compare?previous=${selectedIds[1]}&current=${selectedIds[0]}`);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -69,6 +87,21 @@ export default function HistoryPage() {
               {filter}
             </button>
           ))}
+          <div className="w-px bg-gray-800 mx-2" />
+          <button
+            onClick={() => {
+              setCompareMode(!compareMode);
+              setSelectedIds([]);
+            }}
+            className={`px-3 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap flex items-center gap-1.5 ${
+              compareMode
+                ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                : 'bg-[#1a1a1a] text-gray-400 border border-[#2a2a2a] hover:text-gray-200'
+            }`}
+          >
+            <Scale className="w-3.5 h-3.5" />
+            Compare Mode
+          </button>
         </div>
       </div>
 
@@ -82,6 +115,7 @@ export default function HistoryPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-[#2a2a2a]">
+                {compareMode && <th className="px-4 py-3 text-left w-12"></th>}
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Contract</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Risk</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Status</th>
@@ -91,7 +125,18 @@ export default function HistoryPage() {
             </thead>
             <tbody>
               {filtered.map((audit: any) => (
-                <tr key={audit.id} className="border-b border-[#2a2a2a] last:border-0 hover:bg-white/[0.02] transition-colors">
+                <tr key={audit.id} className={`border-b border-[#2a2a2a] last:border-0 hover:bg-white/[0.02] transition-colors ${selectedIds.includes(audit.id) ? 'bg-blue-500/5' : ''}`}>
+                  {compareMode && (
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        disabled={!selectedIds.includes(audit.id) && selectedIds.length >= 2}
+                        checked={selectedIds.includes(audit.id)}
+                        onChange={() => toggleSelection(audit.id)}
+                        className="w-4 h-4 rounded border-gray-600 text-blue-500 focus:ring-blue-500/20 focus:ring-offset-0 bg-[#0f0f0f]"
+                      />
+                    </td>
+                  )}
                   <td className="px-4 py-3">
                     <span className="text-sm text-white font-medium">{audit.contractName || 'Untitled'}</span>
                   </td>
@@ -147,6 +192,22 @@ export default function HistoryPage() {
         <div className="text-center py-16 bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl">
           <Clock className="w-10 h-10 text-gray-700 mx-auto mb-3" />
           <p className="text-gray-600 text-sm">No audits found matching your criteria.</p>
+        </div>
+      )}
+
+      {/* Floating Compare Action */}
+      {compareMode && selectedIds.length > 0 && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#1a1a1a] border border-[#2a2a2a] shadow-2xl rounded-full px-6 py-3 flex items-center gap-4 z-50 animate-in slide-in-from-bottom-8">
+          <span className="text-sm font-medium text-gray-300">
+            <span className="text-white">{selectedIds.length}</span> of 2 selected
+          </span>
+          <button
+            onClick={handleCompareSubmit}
+            disabled={selectedIds.length !== 2}
+            className="bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-400 text-white text-sm font-medium px-4 py-2 rounded-full transition-all"
+          >
+            Compare Audits
+          </button>
         </div>
       )}
     </div>

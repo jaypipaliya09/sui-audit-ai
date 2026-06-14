@@ -23,6 +23,6 @@ import { UsersModule } from '../users/users.module.js';
   ],
   controllers: [AuthController],
   providers: [AuthService, SuiAuthService, JwtStrategy],
-  exports: [AuthService, JwtStrategy],
+  exports: [AuthService, JwtStrategy, JwtModule],
 })
 export class AuthModule {}

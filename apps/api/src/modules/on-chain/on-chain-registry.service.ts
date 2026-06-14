@@ -65,6 +65,44 @@ export class OnChainRegistryService {
     return result.digest;
   }
 
+  async verifyAudit(contractHash: string): Promise<boolean> {
+    if (!this.isConfigured()) {
+      return false;
+    }
+
+    try {
+      const tx = new TransactionBlock();
+      tx.moveCall({
+        target: `${this.registryPackageId}::registry::verify_audit`,
+        arguments: [
+          tx.object(this.registryObjectId),
+          tx.pure(Array.from(Buffer.from(contractHash, 'hex')), 'vector<u8>'),
+        ],
+      });
+
+      // We use a zero address for dev inspect
+      const result = await this.client.devInspectTransactionBlock({
+        transactionBlock: tx,
+        sender: '0x0000000000000000000000000000000000000000000000000000000000000000',
+      });
+
+      if (result.effects.status.status !== 'success') {
+        return false;
+      }
+
+      const returnValues = result.results?.[0]?.returnValues;
+      if (returnValues && returnValues.length > 0) {
+        // bool is represented as a single byte 1 or 0
+        const val = returnValues[0][0];
+        return val[0] === 1;
+      }
+      return false;
+    } catch (err) {
+      this.logger.error(`Error verifying audit on-chain: ${err}`);
+      return false;
+    }
+  }
+
   getSuiscanUrl(txDigest: string): string {
     const network = this.configService.get<string>('SUI_NETWORK') || 'testnet';
     return `https://suiscan.xyz/${network}/tx/${txDigest}`;

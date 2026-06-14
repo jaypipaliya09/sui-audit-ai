@@ -1,9 +1,9 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Wallet, Shield, Clock, ArrowRight, ChevronLeft, ExternalLink, Zap } from 'lucide-react';
+import { Wallet, Shield, Clock, ArrowRight, ChevronLeft, ExternalLink, Zap, Scale } from 'lucide-react';
 import { useWallet } from '@/lib/walletContext';
 import { RiskBadge } from '@/components/RiskBadge';
 
@@ -14,6 +14,23 @@ function shortAddr(addr: string) {
 export default function MyAuditsPage() {
   const router = useRouter();
   const { address, isConnected, myAudits } = useWallet();
+  const [compareMode, setCompareMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  const toggleSelection = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    setSelectedIds((prev) => {
+      if (prev.includes(id)) return prev.filter((i) => i !== id);
+      if (prev.length >= 2) return [prev[1], id];
+      return [...prev, id];
+    });
+  };
+
+  const handleCompareSubmit = () => {
+    if (selectedIds.length === 2) {
+      router.push(`/compare?previous=${selectedIds[1]}&current=${selectedIds[0]}`);
+    }
+  };
 
   if (!isConnected) {
     return (
@@ -66,13 +83,29 @@ export default function MyAuditsPage() {
                 <span className="font-mono text-xs text-gray-500">{address && shortAddr(address)}</span>
               </div>
             </div>
-            <Link
-              href="/#audit"
-              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold text-sm transition-all shadow-lg shadow-blue-500/20 hover:-translate-y-0.5"
-            >
-              <Zap className="w-4 h-4" />
-              New Audit
-            </Link>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  setCompareMode(!compareMode);
+                  setSelectedIds([]);
+                }}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-lg ${
+                  compareMode
+                    ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
+                    : 'bg-[#161b22] border border-[#30363d] text-gray-300 hover:bg-[#21262d]'
+                }`}
+              >
+                <Scale className="w-4 h-4" />
+                Compare
+              </button>
+              <Link
+                href="/#audit"
+                className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold text-sm transition-all shadow-lg shadow-blue-500/20 hover:-translate-y-0.5"
+              >
+                <Zap className="w-4 h-4" />
+                New Audit
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -116,10 +149,23 @@ export default function MyAuditsPage() {
                     : 'opacity-70'
                 }`}
               >
-                {/* Index */}
-                <div className="shrink-0 w-8 h-8 rounded-lg bg-[#21262d] flex items-center justify-center text-xs font-bold text-gray-500">
-                  {idx + 1}
-                </div>
+                {/* Checkbox / Index */}
+                {compareMode ? (
+                  <div className="shrink-0 flex items-center justify-center pl-2">
+                    <input
+                      type="checkbox"
+                      disabled={!selectedIds.includes(audit.auditId) && selectedIds.length >= 2}
+                      checked={selectedIds.includes(audit.auditId)}
+                      onChange={(e) => toggleSelection(e as any, audit.auditId)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-5 h-5 rounded border-gray-600 text-blue-500 focus:ring-blue-500/20 bg-[#0f0f0f]"
+                    />
+                  </div>
+                ) : (
+                  <div className="shrink-0 w-8 h-8 rounded-lg bg-[#21262d] flex items-center justify-center text-xs font-bold text-gray-500">
+                    {idx + 1}
+                  </div>
+                )}
 
                 {/* Contract info */}
                 <div className="flex-1 min-w-0">
@@ -167,6 +213,22 @@ export default function MyAuditsPage() {
           </div>
         )}
       </div>
+
+      {/* Floating Compare Action */}
+      {compareMode && selectedIds.length > 0 && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#1a1a1a] border border-[#2a2a2a] shadow-2xl rounded-full px-6 py-3 flex items-center gap-4 z-50 animate-in slide-in-from-bottom-8">
+          <span className="text-sm font-medium text-gray-300">
+            <span className="text-white">{selectedIds.length}</span> of 2 selected
+          </span>
+          <button
+            onClick={handleCompareSubmit}
+            disabled={selectedIds.length !== 2}
+            className="bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-400 text-white text-sm font-medium px-4 py-2 rounded-full transition-all"
+          >
+            Compare Audits
+          </button>
+        </div>
+      )}
     </main>
   );
 }

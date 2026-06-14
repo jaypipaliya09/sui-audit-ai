@@ -57,6 +57,8 @@ export interface AuditFinding {
   impact: string;
   recommendation: string;
   codeSnippet: string | null;
+  attackVector?: string;
+  refinedRecommendation?: string;
 }
 
 export interface AuditSummary {

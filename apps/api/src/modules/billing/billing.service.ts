@@ -153,14 +153,23 @@ export class BillingService {
   }
 
   async checkAndIncrementUsage(userId: string, count: number = 1): Promise<boolean> {
-    const sub = await this.billingRepository.findByUserId(userId);
+    let sub = await this.billingRepository.findByUserId(userId);
     const user = await this.usersService.findById(userId);
 
-    // If no explicit sub, we assume free plan with 3 limits and maybe track separately or create customer.
-    // For simplicity, create customer if not exists, but we can't create one without email.
-    // Assuming user gets one if they checkout. Let's just use defaults if null.
-    if (!sub || !user) {
-        return false; // Force user to hit billing/checkout or at least get a Stripe ID mapped first
+    if (!user) return false;
+
+    if (!sub) {
+      // Create a Stripe customer and free subscription on the fly
+      try {
+        const customer = await this.stripe.customers.create({
+          email: user.email,
+          metadata: { userId },
+        });
+        sub = await this.billingRepository.upsert(userId, customer.id);
+      } catch (err) {
+        this.logger.error(`Failed to create Stripe customer: ${err}`);
+        return false;
+      }
     }
     
     if (sub.auditsUsedThisPeriod + count > sub.auditsLimit) {

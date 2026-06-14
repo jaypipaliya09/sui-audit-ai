@@ -17,6 +17,7 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
+  loginWithSui: (address: string, signedMessage: string, signature: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<{ message: string }>;
   logout: () => Promise<void>;
 }
@@ -27,6 +28,7 @@ const AuthContext = createContext<AuthContextType>({
   isLoading: true,
   isAuthenticated: false,
   login: async () => {},
+  loginWithSui: async () => {},
   register: async () => ({ message: '' }),
   logout: async () => {},
 });
@@ -59,6 +61,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('user', JSON.stringify(res.user));
   }, []);
 
+  const loginWithSui = useCallback(async (address: string, signedMessage: string, signature: string) => {
+    const res = await api.verifySuiSignature({ address, signedMessage, signature });
+    setToken(res.accessToken);
+    setUser(res.user);
+    localStorage.setItem('token', res.accessToken);
+    localStorage.setItem('user', JSON.stringify(res.user));
+  }, []);
+
   const register = useCallback(async (name: string, email: string, password: string) => {
     const res = await api.register({ name, email, password });
     return res;
@@ -84,6 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         isAuthenticated: !!token && !!user,
         login,
+        loginWithSui,
         register,
         logout,
       }}

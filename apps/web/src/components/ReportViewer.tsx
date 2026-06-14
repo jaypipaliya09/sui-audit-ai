@@ -5,7 +5,7 @@ import { FindingCard } from './FindingCard';
 import { RiskBadge } from './RiskBadge';
 import { WalrusLink } from './WalrusLink';
 import dynamic from 'next/dynamic';
-import { CheckCircle2, AlertCircle, Zap, ShieldCheck, Share2, Check } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Zap, ShieldCheck, Share2, Check, Code, Copy } from 'lucide-react';
 import { AuditFinding, GasAnalysis, AuditSummary } from '@sui-audit-ai/shared-types';
 
 const SeverityChart = dynamic(() => import('./SeverityChart'), { ssr: false });
@@ -35,6 +35,11 @@ export function ReportViewer({ audit }: ReportViewerProps) {
   const { summaryJson: summary, findingsJson: findings } = audit;
   const isClean = audit.overallRisk === 'CLEAN';
   const [copied, setCopied] = useState(false);
+  const [currentUrl, setCurrentUrl] = useState('');
+
+  React.useEffect(() => {
+    setCurrentUrl(window.location.href);
+  }, []);
 
   const handleShare = async () => {
     try {
@@ -117,6 +122,41 @@ export function ReportViewer({ audit }: ReportViewerProps) {
           <p className="text-gray-300 leading-relaxed text-lg">{summary.executiveSummary}</p>
         )}
       </div>
+
+      {/* Embeddable Badge */}
+      {audit.blobId && (
+        <div className="bg-[#121212] border border-gray-800 rounded-xl p-6 shadow-lg">
+          <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+            <Code className="w-5 h-5 text-blue-400" />
+            Embeddable Status Badge
+          </h2>
+          <p className="text-sm text-gray-400 mb-4">
+            Add this badge to your repository's README to show your contract's security status. The badge will automatically update.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            {/* The Badge Preview */}
+            <div className="shrink-0 bg-black/50 p-3 rounded-lg border border-gray-800 flex items-center justify-center">
+              <img src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/badge/${audit.blobId}`} alt="SuiAudit AI Status" className="h-6" />
+            </div>
+            
+            {/* The Markdown Code */}
+            <div className="flex-1 relative group w-full">
+              <pre className="bg-[#0d1117] border border-gray-800 p-3 rounded-lg text-sm font-mono text-gray-300 overflow-x-auto">
+                [![MoveAuditor]({process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/badge/{audit.blobId})]({currentUrl})
+              </pre>
+              <button 
+                onClick={() => {
+                  navigator.clipboard.writeText(`[![MoveAuditor](${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/badge/${audit.blobId})](${currentUrl})`);
+                }}
+                className="absolute top-2 right-2 p-1.5 bg-[#21262d] text-gray-400 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:text-white"
+                title="Copy Markdown"
+              >
+                <Copy className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Findings List */}
       {!isClean && findings && findings.length > 0 && (

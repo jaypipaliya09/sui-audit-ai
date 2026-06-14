@@ -32,7 +32,6 @@ export class RepoAuditController {
   }
 
   @Post('scan')
-  @UseGuards(FlexibleAuthGuard)
   async scan(@Body() body: { repoUrl: string; includeTests?: boolean }) {
     const repoInfo = await this.githubService.scanRepository(body.repoUrl, body.includeTests || false);
     
@@ -64,7 +63,7 @@ export class RepoAuditController {
     const repoInfo = JSON.parse(cached);
     const filesCount = repoInfo.moveFiles.length;
 
-    const userId = user?.sub || user?.id;
+    const userId = user?.userId || user?.sub || user?.id;
 
     // Check quota
     const allowed = await this.billingService.checkAndIncrementUsage(userId, filesCount);

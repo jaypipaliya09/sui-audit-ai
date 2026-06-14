@@ -6,9 +6,11 @@ import Link from 'next/link';
 import {
   Shield, Zap, Globe, ArrowRight, CheckCircle2, Clock,
   FileCode2, Brain, Database, Share2, BarChart3, Lock,
-  AlertTriangle, ChevronRight, Loader2,
+  AlertTriangle, ChevronRight, Loader2, GitBranch, Search, Play, AlertCircle,
 } from 'lucide-react';
+import { api } from '@/lib/api';
 import { ContractEditor } from '@/components/ContractEditor';
+import { AuditMethodSelector } from '@/components/AuditMethodSelector';
 import { RiskBadge } from '@/components/RiskBadge';
 import { SkeletonAuditCard } from '@/components/SkeletonCard';
 import { FadeIn } from '@/components/FadeIn';
@@ -101,6 +103,217 @@ const DEMO_AUDITS = [
   { id: 'd6', contractName: 'bridge::escrow', overallRisk: 'HIGH', createdAt: new Date(Date.now() - 3600000 * 72).toISOString(), blobId: null, status: 'COMPLETE' },
 ];
 
+/* ─── Repo Audit Tracks ──────────────────────────────────────────── */
+const TRACKS = [
+  { id: 'DEFI', name: 'DeFi & AMM' },
+  { id: 'GAMING', name: 'Gaming & NFTs' },
+  { id: 'AI', name: 'AI & Inference' },
+  { id: 'PAYMENTS', name: 'Payments' },
+  { id: 'INSTITUTIONS_CAPITAL_MARKETS', name: 'Institutions & Capital Markets' },
+];
+
+/* ─── Inline GitHub Repo Audit Form ──────────────────────────────── */
+function RepoAuditInline() {
+  const router = useRouter();
+  const [repoUrl, setRepoUrl] = useState('');
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanResult, setScanResult] = useState<any>(null);
+  const [scanError, setScanError] = useState('');
+  const [projectTrack, setProjectTrack] = useState('DEFI');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+
+  const handleScan = async () => {
+    if (!repoUrl) return;
+    setIsScanning(true);
+    setScanError('');
+    setScanResult(null);
+    try {
+      const res = await api.scanRepo({ repoUrl });
+      setScanResult(res);
+    } catch (err: any) {
+      setScanError(err.message || 'Failed to scan repository. Ensure it is public and contains .move files.');
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!scanResult) return;
+    setIsSubmitting(true);
+    setSubmitError('');
+    try {
+      const res = await api.submitRepoAudit({ scanId: scanResult.scanId, projectTrack });
+      router.push(`/repo-audit/${res.repoAuditId}`);
+    } catch (err: any) {
+      setSubmitError(err.message || 'Failed to submit repository audit.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <FadeIn delay={0.3} className="bg-[#161b22] border border-[#21262d] rounded-2xl shadow-2xl overflow-hidden">
+      {/* Terminal toolbar */}
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-[#21262d] bg-[#0d1117]">
+        <div className="w-3 h-3 rounded-full bg-red-500/70" />
+        <div className="w-3 h-3 rounded-full bg-yellow-500/70" />
+        <div className="w-3 h-3 rounded-full bg-green-500/70" />
+        <span className="ml-2 text-xs text-gray-600 font-mono flex items-center gap-1.5">
+          <GitBranch className="w-3 h-3" /> github_audit
+        </span>
+      </div>
+
+      <div className="p-6 space-y-6">
+        {/* Step 1: Scan */}
+        <div>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-8 h-8 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-sm">
+              1
+            </div>
+            <h3 className="text-lg font-semibold text-white">Scan Repository</h3>
+          </div>
+          <div className="ml-11 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-2">GitHub Repository URL</label>
+              <div className="flex gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
+                  <input
+                    type="url"
+                    value={repoUrl}
+                    onChange={(e) => setRepoUrl(e.target.value)}
+                    placeholder="https://github.com/owner/repo"
+                    disabled={isScanning || !!scanResult}
+                    onKeyDown={(e) => e.key === 'Enter' && handleScan()}
+                    className="w-full bg-[#0d1117] border border-[#30363d] focus:border-blue-500/60 rounded-xl pl-10 pr-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-sm font-mono"
+                  />
+                </div>
+                {!scanResult && (
+                  <button
+                    onClick={handleScan}
+                    disabled={!repoUrl || isScanning}
+                    className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-[#21262d] disabled:text-gray-600 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 disabled:shadow-none hover:-translate-y-0.5 active:translate-y-0"
+                  >
+                    {isScanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+                    {isScanning ? 'Scanning…' : 'Scan'}
+                  </button>
+                )}
+                {scanResult && (
+                  <button
+                    onClick={() => { setScanResult(null); setRepoUrl(''); setScanError(''); setSubmitError(''); }}
+                    className="flex items-center gap-2 px-5 py-3 bg-[#21262d] hover:bg-[#30363d] text-gray-300 hover:text-white font-medium rounded-xl transition-all text-sm"
+                  >
+                    Change Repo
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {scanError && (
+              <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                <p>{scanError}</p>
+              </div>
+            )}
+
+            {scanResult && (
+              <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-xl">
+                <div className="flex items-center gap-2 mb-3">
+                  <CheckCircle2 className="w-5 h-5 text-green-400" />
+                  <h4 className="font-semibold text-green-400">Scan Complete</h4>
+                </div>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-500">Repository:</span>
+                    <span className="ml-2 text-white font-medium">{scanResult.repoOwner}/{scanResult.repoName}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Commit:</span>
+                    <span className="ml-2 text-white font-mono text-xs">{scanResult.commitSha?.slice(0, 7)}</span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-gray-500">Files Found:</span>
+                    <span className="ml-2 text-white font-medium flex items-center gap-1.5 mt-1">
+                      <FileCode2 className="w-4 h-4 text-blue-400" />
+                      {scanResult.estimatedAudits} Move contracts ready for analysis
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Step 2: Configure & Submit */}
+        <div className={`transition-all duration-300 ${!scanResult ? 'opacity-40 pointer-events-none' : ''}`}>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-8 h-8 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-sm">
+              2
+            </div>
+            <h3 className="text-lg font-semibold text-white">Configure & Submit</h3>
+          </div>
+          <div className="ml-11 space-y-5">
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-2">Project Track</label>
+              <p className="text-xs text-gray-600 mb-3">Helps the AI apply context-specific vulnerability checks.</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {TRACKS.map((track) => (
+                  <button
+                    key={track.id}
+                    onClick={() => setProjectTrack(track.id)}
+                    className={`p-2.5 text-left rounded-xl border text-sm transition-all ${
+                      projectTrack === track.id
+                        ? 'bg-indigo-500/10 border-indigo-500/40 text-indigo-300'
+                        : 'bg-[#0d1117] border-[#30363d] text-gray-400 hover:border-[#444c56]'
+                    }`}
+                  >
+                    {track.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {submitError && (
+              <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                <p>{submitError}</p>
+              </div>
+            )}
+
+            <button
+              onClick={handleSubmit}
+              disabled={isSubmitting || !scanResult}
+              className="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-[#21262d] disabled:text-gray-600 text-white font-bold rounded-xl transition-all shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 disabled:shadow-none hover:-translate-y-0.5 active:translate-y-0"
+            >
+              {isSubmitting ? (
+                <><Loader2 className="w-5 h-5 animate-spin" /> Initiating Audit…</>
+              ) : (
+                <><Shield className="w-5 h-5" /> Submit Repository Audit <ArrowRight className="w-4 h-4" /></>
+              )}
+            </button>
+
+            {/* Trust indicators */}
+            <div className="flex flex-wrap gap-4 pt-2 border-t border-[#21262d]">
+              {[
+                { icon: CheckCircle2, text: 'All .move files scanned', color: 'text-green-400' },
+                { icon: Lock, text: 'Cross-contract analysis', color: 'text-blue-400' },
+                { icon: Globe, text: 'Report on Walrus', color: 'text-cyan-400' },
+                { icon: Zap, text: 'Real-time progress', color: 'text-purple-400' },
+              ].map((item) => (
+                <div key={item.text} className="flex items-center gap-1.5 text-xs text-gray-500">
+                  <item.icon className={`w-3.5 h-3.5 ${item.color}`} />
+                  {item.text}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </FadeIn>
+  );
+}
+
 /* ─── Component ──────────────────────────────────────────────────── */
 export default function Home() {
   const router = useRouter();
@@ -109,6 +322,7 @@ export default function Home() {
 
   const [contractCode, setContractCode] = useState('');
   const [contractName, setContractName] = useState('');
+  const [auditMethod, setAuditMethod] = useState<'single' | 'repo'>('single');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recentAudits, setRecentAudits] = useState<any[]>([]);
@@ -414,9 +628,14 @@ export default function Home() {
           </p>
         </FadeIn>
 
-        <FadeIn delay={0.2} className="bg-[#161b22] border border-[#21262d] rounded-2xl shadow-2xl overflow-hidden">
-          {/* Editor toolbar */}
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-[#21262d] bg-[#0d1117]">
+        <FadeIn delay={0.2} className="mb-6">
+          <AuditMethodSelector selected={auditMethod} onSelect={setAuditMethod} />
+        </FadeIn>
+
+        {auditMethod === 'single' ? (
+          <FadeIn delay={0.3} className="bg-[#161b22] border border-[#21262d] rounded-2xl shadow-2xl overflow-hidden">
+            {/* Editor toolbar */}
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-[#21262d] bg-[#0d1117]">
             <div className="w-3 h-3 rounded-full bg-red-500/70" />
             <div className="w-3 h-3 rounded-full bg-yellow-500/70" />
             <div className="w-3 h-3 rounded-full bg-green-500/70" />
@@ -496,6 +715,9 @@ export default function Home() {
             </div>
           </div>
         </FadeIn>
+        ) : (
+          <RepoAuditInline />
+        )}
       </section>
 
       {/* ── RECENT AUDITS ────────────────────────────────────────────── */}

@@ -76,6 +76,26 @@ export function FindingCard({ finding }: FindingCardProps) {
               <p className="text-blue-200/80 text-sm">{finding.recommendation}</p>
             </div>
 
+            {finding.attackVector && (
+              <div className="bg-orange-950/20 border border-orange-900/30 rounded-lg p-3">
+                <h4 className="flex items-center gap-2 text-orange-400 text-sm font-medium mb-1">
+                  <AlertTriangle className="w-4 h-4" />
+                  Verified Attack Vector (Deep Dive)
+                </h4>
+                <p className="text-orange-200/80 text-sm">{finding.attackVector}</p>
+              </div>
+            )}
+
+            {finding.refinedRecommendation && (
+              <div className="bg-green-950/20 border border-green-900/30 rounded-lg p-3">
+                <h4 className="flex items-center gap-2 text-green-400 text-sm font-medium mb-1">
+                  <Wrench className="w-4 h-4" />
+                  Refined Recommendation (Deep Dive)
+                </h4>
+                <p className="text-green-200/80 text-sm">{finding.refinedRecommendation}</p>
+              </div>
+            )}
+
             {finding.codeSnippet && (
               <div className="bg-black/50 border border-gray-800 rounded-lg p-3 overflow-x-auto">
                 <h4 className="flex items-center gap-2 text-gray-400 text-sm font-medium mb-2">

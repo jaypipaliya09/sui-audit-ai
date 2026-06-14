@@ -132,6 +132,11 @@ class ApiClient {
     return this.request<any>(`/repo-audit?page=${page}&limit=${limit}`);
   }
 
+  // ── On-Chain ──
+  async verifyAuditOnChain(hash: string) {
+    return this.request<{ hash: string; verified: boolean; timestamp: string }>(`/on-chain/verify/${hash}`);
+  }
+
   // ── Reports ──
   async getReports(page = 1, limit = 20) {
     return this.request<any>(`/reports?page=${page}&limit=${limit}`);
@@ -143,6 +148,18 @@ class ApiClient {
 
   async getReportById(id: string) {
     return this.request<any>(`/reports/${id}`);
+  }
+
+  // ── Admin ──
+  async getAdminUsers(page = 1, limit = 20) {
+    return this.request<any>(`/admin/users?page=${page}&limit=${limit}`);
+  }
+
+  async updateUserPlan(userId: string, plan: string) {
+    return this.request<any>(`/admin/users/${userId}/plan`, {
+      method: 'PATCH',
+      body: JSON.stringify({ plan }),
+    });
   }
 
   // ── Billing ──

@@ -10,6 +10,7 @@ import { useWallet } from '@/lib/walletContext';
 const NAV_LINKS = [
   { href: '/', label: 'Home', icon: Shield },
   { href: '/how-it-works', label: 'How It Works', icon: BookOpen },
+  { href: '/verify', label: 'Verify On-Chain', icon: Shield },
   { href: '/#audit', label: 'Recent Audits', icon: Clock },
 ];
 
