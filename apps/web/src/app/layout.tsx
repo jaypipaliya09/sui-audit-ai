@@ -4,6 +4,7 @@ import "./globals.css";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { WalletContextProvider } from "@/lib/walletContext";
+import { AuthProvider } from "@/lib/auth";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -41,11 +42,13 @@ export default function RootLayout({
         className="antialiased bg-[#0d1117] text-gray-200 min-h-screen flex flex-col"
         style={{ fontFamily: "var(--font-inter), system-ui, sans-serif" }}
       >
-        <WalletContextProvider>
-          <Navbar />
-          <div className="flex-1">{children}</div>
-          <Footer />
-        </WalletContextProvider>
+        <AuthProvider>
+          <WalletContextProvider>
+            <Navbar />
+            <div className="flex-1">{children}</div>
+            <Footer />
+          </WalletContextProvider>
+        </AuthProvider>
       </body>
     </html>
   );
