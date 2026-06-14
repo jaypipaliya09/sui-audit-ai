@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Header,
+  Headers,
   HttpCode,
   HttpStatus,
   NotFoundException,
@@ -40,8 +41,15 @@ export class AuditController {
   @Post('submit')
   @HttpCode(HttpStatus.ACCEPTED)
   @Throttle({ default: { limit: 20, ttl: 3600_000 } })
-  async submit(@Body() dto: SubmitAuditDto) {
-    const { auditId } = await this.auditService.submitAudit(dto);
+  async submit(
+    @Body() dto: SubmitAuditDto,
+    @Headers('authorization') authHeader?: string,
+  ) {
+    let apiKey: string | undefined;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      apiKey = authHeader.substring(7);
+    }
+    const { auditId } = await this.auditService.submitAudit(dto, apiKey);
     return {
       auditId,
       statusUrl: `/audit/${auditId}/status`,

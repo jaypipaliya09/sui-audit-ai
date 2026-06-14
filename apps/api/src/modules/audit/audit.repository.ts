@@ -26,12 +26,13 @@ export class AuditRepository {
 
   // ─── Create ──────────────────────────────────────────────────────────────────
 
-  async createAudit(contractName: string, contractCode: string, txDigest?: string) {
+  async createAudit(contractName: string, contractCode: string, txDigest?: string, track?: string) {
     const audit = await this.prisma.audit.create({
       data: {
         contractName,
         contractCode,
         status: AuditStatus.QUEUED,
+        track: track || 'General',
         ...(txDigest && { txDigest }),
       },
     });

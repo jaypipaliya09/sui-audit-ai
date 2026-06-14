@@ -26,18 +26,20 @@ export class ClaudeService {
    *
    * @param contractCode  - Raw Move source code
    * @param contractName  - Human-readable name for the contract
+   * @param track         - Optional track (e.g. DeFi, NFT) to guide the audit
    * @param onProgress    - Optional callback for reporting progress (pct 0-100, message)
    * @returns Structured AuditResult JSON
    */
   async auditContract(
     contractCode: string,
     contractName: string,
+    track?: string,
     onProgress?: (pct: number, msg: string) => void,
   ): Promise<AuditResult> {
     // ── Phase 1: Call Claude API ──────────────────────────────────────
     onProgress?.(25, 'Connecting to Claude API...');
     this.logger.log(
-      `Starting audit for "${contractName}" (${contractCode.split('\n').length} lines)`,
+      `Starting audit for "${contractName}" (${contractCode.split('\n').length} lines, track: ${track || 'General'})`,
     );
 
     let rawText: string;
@@ -49,7 +51,7 @@ export class ClaudeService {
         messages: [
           {
             role: 'user',
-            content: buildUserPrompt(contractCode, contractName),
+            content: buildUserPrompt(contractCode, contractName, track),
           },
         ],
       });

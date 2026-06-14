@@ -34,10 +34,10 @@ export class AuditProcessor extends WorkerHost {
   }
 
   async process(job: Job<AuditJobData>): Promise<void> {
-    const { auditId, contractCode, contractName } = job.data;
+    const { auditId, contractCode, contractName, track } = job.data;
 
     this.logger.log(
-      `Processing job [${job.id}] → audit [${auditId}] for "${contractName}"`,
+      `Processing job [${job.id}] → audit [${auditId}] for "${contractName}" (Track: ${track || 'General'})`,
     );
 
     try {
@@ -49,6 +49,7 @@ export class AuditProcessor extends WorkerHost {
       const result = await this.claudeService.auditContract(
         contractCode,
         contractName,
+        track,
         (pct: number, msg: string) => {
           // Claude fires at 25% and 65% — map these into our 20-70% band
           const mappedPct = Math.round(20 + (pct / 100) * 50);

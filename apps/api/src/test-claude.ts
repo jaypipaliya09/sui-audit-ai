@@ -62,6 +62,7 @@ async function main() {
     const result = await service.auditContract(
       contractCode,
       contractName,
+      undefined,
       (pct, msg) => {
         console.log(`  [${pct}%] ${msg}`);
       },

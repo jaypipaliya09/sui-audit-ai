@@ -21,6 +21,9 @@ model Audit {
   overallRisk   RiskLevel?
   findingsJson  Json?
   summaryJson   Json?
+  track         String?     @default("General")
+  apiKeyId      String?
+  apiKey        ApiKey?     @relation(fields: [apiKeyId], references: [id])
 
   txDigest      String?     @unique
   criticalCount Int         @default(0)
@@ -71,11 +74,14 @@ model User {
   updatedAt     DateTime  @updatedAt
   orgId         String?
   role          UserRole  @default(MEMBER)
+  plan          SubscriptionPlan @default(FREE)
+  credits       Int       @default(5)
   
   organization  Organization? @relation(fields: [orgId], references: [id])
   audits        Audit[]
   emailTokens   EmailVerificationToken[]
   refreshTokens RefreshToken[]
+  apiKeys       ApiKey[]
 
   @@index([email])
   @@index([suiAddress])
@@ -95,6 +101,25 @@ enum UserRole {
   ADMIN
   MEMBER
   VIEWER
+}
+
+enum SubscriptionPlan {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+model ApiKey {
+  id        String    @id @default(uuid())
+  key       String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  createdAt DateTime  @default(now())
+  lastUsed  DateTime?
+  audits    Audit[]
+
+  @@index([userId])
+  @@index([key])
 }
 
 model EmailVerificationToken {

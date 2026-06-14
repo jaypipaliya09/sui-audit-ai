@@ -15,6 +15,7 @@
     "turbo": "latest"
   },
   "dependencies": {
-    "@prisma/client": "^5.17.0"
+    "@prisma/client": "^5.17.0",
+    "@sui-audit-ai/cli": "^1.0.0"
   }
 }

@@ -59,6 +59,11 @@ export class SubmitAuditDto {
   @MaxLength(500, { message: 'Description must not exceed 500 characters' })
   description?: string;
 
+  /** Optional track for specialized AI audits (e.g. DeFi, NFT, DeepBook) */
+  @IsOptional()
+  @IsString()
+  track?: string;
+
   /** Optional transaction digest proving payment of 1 SUI */
   @IsOptional()
   @IsString()
