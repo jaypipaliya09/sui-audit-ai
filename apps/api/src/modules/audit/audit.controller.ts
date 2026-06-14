@@ -18,6 +18,8 @@ import { AuditGateway } from './audit.gateway.js';
 import { AuditRepository } from './audit.repository.js';
 import { SubmitAuditDto } from './dto/submit-audit.dto.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
+import { FlexibleAuthGuard } from '../../common/guards/flexible-auth.guard.js';
+import { RateLimitGuard } from '../../common/guards/rate-limit.guard.js';
 import { AuditQuotaGuard } from './guards/audit-quota.guard.js';
 
 // String constants matching Prisma AuditStatus enum values
@@ -43,7 +45,7 @@ export class AuditController {
   @Post('submit')
   @HttpCode(HttpStatus.ACCEPTED)
   @Throttle({ default: { limit: 20, ttl: 3600_000 } })
-  @UseGuards(JwtAuthGuard, AuditQuotaGuard)
+  @UseGuards(FlexibleAuthGuard, RateLimitGuard, AuditQuotaGuard)
   async submit(@Body() dto: SubmitAuditDto) {
     const { auditId } = await this.auditService.submitAudit(dto);
     return {

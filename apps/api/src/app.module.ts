@@ -15,6 +15,8 @@ import { HealthController } from './modules/health/health.controller.js';
 import { UsersModule } from './modules/users/users.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { BillingModule } from './modules/billing/billing.module.js';
+import { ApiKeysModule } from './modules/api-keys/api-keys.module.js';
+import { RateLimitModule } from './modules/rate-limiting/rate-limit.module.js';
 
 @Module({
   imports: [
@@ -67,6 +69,8 @@ import { BillingModule } from './modules/billing/billing.module.js';
     UsersModule,
     AuthModule,
     BillingModule,
+    ApiKeysModule,
+    RateLimitModule,
   ],
   controllers: [AppController, HealthController],
   providers: [
