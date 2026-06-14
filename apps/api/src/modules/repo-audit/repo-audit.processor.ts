@@ -9,6 +9,8 @@ import { GitHubService } from '../github/github.service.js';
 import { RepoAuditService } from './repo-audit.service.js';
 import { RepoAuditGateway } from './repo-audit.gateway.js';
 import { RepoReportService } from '../report/repo-report.service.js';
+import { EmailService } from '../email/email.service.js';
+import { PrismaService } from '../../prisma/prisma.service.js';
 import * as crypto from 'crypto';
 
 const AUDIT_CONCURRENCY = 3;
@@ -36,12 +38,16 @@ export class RepoAuditProcessor extends WorkerHost {
     private readonly repoAuditService: RepoAuditService,
     private readonly repoAuditGateway: RepoAuditGateway,
     private readonly repoReportService: RepoReportService,
+    private readonly emailService: EmailService,
+    private readonly prisma: PrismaService,
   ) {
     super();
   }
 
   async process(job: Job<RepoAuditJobData>): Promise<void> {
     const { repoAuditId, repoUrl, repoOwner, repoName, projectTrack, moveFiles, userId } = job.data;
+    
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
     this.logger.log(`Processing repo audit [${repoAuditId}] for ${repoOwner}/${repoName}`);
 
@@ -193,11 +199,30 @@ export class RepoAuditProcessor extends WorkerHost {
       this.repoAuditGateway.emitComplete(repoAuditId, blobId, walrusUrl, onChainTxDigest);
 
       this.logger.log(`✅ Repo audit [${repoAuditId}] complete — ${filesAudited} contracts audited`);
+
+      if (user?.email) {
+        await this.emailService.sendRepoAuditComplete(user.email, {
+          repoName: `${repoOwner}/${repoName}`,
+          riskLevel: crossContractAnalysis.repositoryRisk || 'MEDIUM',
+          contractsAudited: filesAudited,
+          totalFindings,
+          reportUrl: `http://localhost:3000/repo-audit/${repoAuditId}/report`,
+          walrusUrl,
+        });
+      }
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`❌ Repo audit [${repoAuditId}] failed: ${errMsg}`);
       await this.repoAuditService.markFailed(repoAuditId, errMsg);
       this.repoAuditGateway.emitError(repoAuditId, errMsg);
+      
+      if (user?.email) {
+        await this.emailService.sendAuditFailed(user.email, {
+          contractName: `${repoOwner}/${repoName} (Repository)`,
+          errorMessage: errMsg,
+        });
+      }
+
       throw error;
     }
   }

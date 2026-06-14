@@ -105,5 +105,6 @@ export interface AuditJobData {
   auditId: string;
   contractCode: string;
   contractName: string;
+  userId: string;
   submittedAt: Date;
 }

@@ -20,6 +20,7 @@ import { RateLimitModule } from './modules/rate-limiting/rate-limit.module.js';
 import { OnChainModule } from './modules/on-chain/on-chain.module.js';
 import { GitHubModule } from './modules/github/github.module.js';
 import { RepoAuditModule } from './modules/repo-audit/repo-audit.module.js';
+import { EmailModule } from './modules/email/email.module.js';
 
 @Module({
   imports: [
@@ -77,6 +78,7 @@ import { RepoAuditModule } from './modules/repo-audit/repo-audit.module.js';
     OnChainModule,
     GitHubModule,
     RepoAuditModule,
+    EmailModule,
   ],
   controllers: [AppController, HealthController],
   providers: [

@@ -8,6 +8,8 @@ import { ReportService } from '../report/report.service.js';
 import { AuditRepository } from './audit.repository.js';
 import { AuditGateway } from './audit.gateway.js';
 import { OnChainRegistryService } from '../on-chain/on-chain-registry.service.js';
+import { EmailService } from '../email/email.service.js';
+import { PrismaService } from '../../prisma/prisma.service.js';
 import type { AuditJobData } from '../claude/types/finding.types.js';
 
 // String constants matching Prisma AuditStatus enum values
@@ -31,12 +33,16 @@ export class AuditProcessor extends WorkerHost {
     private readonly auditRepository: AuditRepository,
     private readonly auditGateway: AuditGateway,
     private readonly onChainRegistryService: OnChainRegistryService,
+    private readonly emailService: EmailService,
+    private readonly prisma: PrismaService,
   ) {
     super();
   }
 
   async process(job: Job<AuditJobData>): Promise<void> {
-    const { auditId, contractCode, contractName } = job.data;
+    const { auditId, contractCode, contractName, userId } = job.data;
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
     this.logger.log(
       `Processing job [${job.id}] → audit [${auditId}] for "${contractName}"`,
@@ -107,6 +113,19 @@ export class AuditProcessor extends WorkerHost {
       this.logger.log(
         `✅ Audit [${auditId}] finished — blobId: ${blobId}, risk: ${result.summary.overallRisk}`,
       );
+
+      if (user?.email) {
+        await this.emailService.sendAuditComplete(user.email, {
+          contractName,
+          riskLevel: result.summary.overallRisk || 'MEDIUM',
+          criticalCount: result.findings.filter((f) => f.severity === 'CRITICAL').length,
+          highCount: result.findings.filter((f) => f.severity === 'HIGH').length,
+          mediumCount: result.findings.filter((f) => f.severity === 'MEDIUM').length,
+          reportUrl: `http://localhost:3000/audits/${auditId}/report`,
+          walrusUrl,
+          onChainUrl: onChainTxDigest ? `https://suiscan.xyz/testnet/tx/${onChainTxDigest}` : undefined,
+        });
+      }
     } catch (error) {
       const errMsg =
         error instanceof Error ? error.message : 'Unknown worker error';
@@ -118,6 +137,13 @@ export class AuditProcessor extends WorkerHost {
       });
 
       this.auditGateway.emitError(auditId, errMsg);
+
+      if (user?.email) {
+        await this.emailService.sendAuditFailed(user.email, {
+          contractName,
+          errorMessage: errMsg,
+        });
+      }
 
       // Re-throw so BullMQ can apply retry logic
       throw error;

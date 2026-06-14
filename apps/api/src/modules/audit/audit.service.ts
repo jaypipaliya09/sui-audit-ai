@@ -29,7 +29,7 @@ export class AuditService {
    * 2. Push a BullMQ job so the worker picks it up
    * 3. Return the auditId for status polling
    */
-  async submitAudit(dto: SubmitAuditDto): Promise<{ auditId: string }> {
+  async submitAudit(dto: SubmitAuditDto, userId?: string): Promise<{ auditId: string }> {
     const { contractCode, contractName, txDigest } = dto;
 
     // Verify transaction if provided (required in production, allowing bypass for pure testing if we want)
@@ -83,6 +83,7 @@ export class AuditService {
       auditId: audit.id,
       contractCode,
       contractName,
+      userId: userId || '',
       submittedAt: new Date(),
     };
 

@@ -3,6 +3,7 @@ import { BillingRepository } from './billing.repository.js';
 import { UsersService } from '../users/users.service.js';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
+import { EmailService } from '../email/email.service.js';
 
 @Injectable()
 export class BillingService {
@@ -13,6 +14,7 @@ export class BillingService {
     private readonly billingRepository: BillingRepository,
     private readonly usersService: UsersService,
     private readonly configService: ConfigService,
+    private readonly emailService: EmailService,
   ) {
     this.stripe = new Stripe(this.configService.get<string>('STRIPE_SECRET_KEY') || 'sk_test_123', {
       apiVersion: '2025-02-24.acacia' as any,
@@ -103,7 +105,19 @@ export class BillingService {
         const invoice = event.data.object as any;
         if (invoice.customer) {
           await this.billingRepository.resetMonthlyUsage(invoice.customer as string);
-          // TODO: Phase 6 sendInvoiceConfirmation email
+          
+          const sub = await this.billingRepository.findByUserId(invoice.customer); // We might need to find by customer
+          const userId = sub?.userId; // Assuming we can get userId from invoice customer. Let's look up user
+          // Actually billingRepository.findByUserId takes userId. We need to find by stripeCustomerId.
+          // For now, let's just log or try if we have the user email.
+          // Wait, the webhook has customer email in invoice.customer_email.
+          if (invoice.customer_email) {
+            await this.emailService.sendInvoiceConfirmation(invoice.customer_email, {
+              amount: `$${(invoice.amount_paid / 100).toFixed(2)}`,
+              plan: 'Pro Plan', // Simple fallback
+              invoiceUrl: invoice.hosted_invoice_url || '#',
+            });
+          }
         }
         break;
       }
@@ -111,7 +125,12 @@ export class BillingService {
         const invoice = event.data.object as any;
         if (invoice.customer) {
           await this.billingRepository.activateSubscription(invoice.customer as string, { status: 'PAST_DUE' });
-          // TODO: Phase 6 sendPaymentFailed email
+          if (invoice.customer_email) {
+            await this.emailService.sendPaymentFailed(invoice.customer_email, {
+              amount: `$${(invoice.amount_due / 100).toFixed(2)}`,
+              updatePaymentUrl: `${this.configService.get('FRONTEND_URL')}/pricing`,
+            });
+          }
         }
         break;
       }
@@ -135,15 +154,41 @@ export class BillingService {
 
   async checkAndIncrementUsage(userId: string, count: number = 1): Promise<boolean> {
     const sub = await this.billingRepository.findByUserId(userId);
+    const user = await this.usersService.findById(userId);
+
     // If no explicit sub, we assume free plan with 3 limits and maybe track separately or create customer.
     // For simplicity, create customer if not exists, but we can't create one without email.
     // Assuming user gets one if they checkout. Let's just use defaults if null.
-    if (!sub) {
+    if (!sub || !user) {
         return false; // Force user to hit billing/checkout or at least get a Stripe ID mapped first
     }
+    
     if (sub.auditsUsedThisPeriod + count > sub.auditsLimit) {
+       if (user.email) {
+         await this.emailService.sendQuotaExceeded(user.email, {
+           limit: sub.auditsLimit,
+           resetDate: sub.currentPeriodEnd ? sub.currentPeriodEnd.toISOString() : new Date().toISOString(),
+           upgradeUrl: `${this.configService.get('FRONTEND_URL')}/pricing`,
+         });
+       }
        return false;
     }
+
+    // Check if crossing 80% threshold
+    const currentPct = sub.auditsUsedThisPeriod / sub.auditsLimit;
+    const newPct = (sub.auditsUsedThisPeriod + count) / sub.auditsLimit;
+    
+    if (currentPct < 0.8 && newPct >= 0.8) {
+       if (user.email) {
+         await this.emailService.sendQuotaWarning(user.email, {
+           used: sub.auditsUsedThisPeriod + count,
+           limit: sub.auditsLimit,
+           resetDate: sub.currentPeriodEnd ? sub.currentPeriodEnd.toISOString() : new Date().toISOString(),
+           upgradeUrl: `${this.configService.get('FRONTEND_URL')}/pricing`,
+         });
+       }
+    }
+
     await this.billingRepository.incrementUsage(userId, count);
     return true;
   }

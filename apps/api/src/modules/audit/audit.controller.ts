@@ -8,6 +8,7 @@ import {
   NotFoundException,
   Param,
   Post,
+  Req,
   Sse,
   UseGuards,
 } from '@nestjs/common';
@@ -46,8 +47,9 @@ export class AuditController {
   @HttpCode(HttpStatus.ACCEPTED)
   @Throttle({ default: { limit: 20, ttl: 3600_000 } })
   @UseGuards(FlexibleAuthGuard, RateLimitGuard, AuditQuotaGuard)
-  async submit(@Body() dto: SubmitAuditDto) {
-    const { auditId } = await this.auditService.submitAudit(dto);
+  async submit(@Body() dto: SubmitAuditDto, @Req() req: any) {
+    const userId = req.user?.sub;
+    const { auditId } = await this.auditService.submitAudit(dto, userId);
     return {
       auditId,
       statusUrl: `/audit/${auditId}/status`,

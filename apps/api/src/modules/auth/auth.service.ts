@@ -4,6 +4,7 @@ import { UsersService } from '../users/users.service.js';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import * as crypto from 'crypto';
+import { EmailService } from '../email/email.service.js';
 
 @Injectable()
 export class AuthService {
@@ -11,6 +12,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly prisma: PrismaService,
+    private readonly emailService: EmailService,
   ) {}
 
   async register(data: any) {
@@ -35,8 +37,11 @@ export class AuthService {
       },
     });
 
-    // Mock sending email
-    console.log(`[Mock Email] Sending verification email to ${user.email}. Token: ${token}`);
+    // Send real emails
+    await this.emailService.sendWelcome(user.email, user.name || '');
+    // In production, this would be a full URL like https://moveauditor.xyz/verify?token=...
+    const verifyUrl = `http://localhost:3000/verify?token=${token}`;
+    await this.emailService.sendEmailVerification(user.email, verifyUrl);
 
     return { message: 'Registration successful. Please check your email to verify.' };
   }
