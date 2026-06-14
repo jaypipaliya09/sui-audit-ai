@@ -7,6 +7,7 @@ import { WalrusService } from '../walrus/walrus.service.js';
 import { ReportService } from '../report/report.service.js';
 import { AuditRepository } from './audit.repository.js';
 import { AuditGateway } from './audit.gateway.js';
+import { OnChainRegistryService } from '../on-chain/on-chain-registry.service.js';
 import type { AuditJobData } from '../claude/types/finding.types.js';
 
 // String constants matching Prisma AuditStatus enum values
@@ -29,6 +30,7 @@ export class AuditProcessor extends WorkerHost {
     private readonly reportService: ReportService,
     private readonly auditRepository: AuditRepository,
     private readonly auditGateway: AuditGateway,
+    private readonly onChainRegistryService: OnChainRegistryService,
   ) {
     super();
   }
@@ -67,8 +69,36 @@ export class AuditProcessor extends WorkerHost {
       const walrusUrl = this.walrusService.getReportUrl(blobId);
 
       // ── Phase 5: Persist Result to DB ─────────────────────────────────────
-      this.auditGateway.emitProgress(auditId, 95, 'Saving results...');
+      this.auditGateway.emitProgress(auditId, 88, 'Saving results...');
       await this.auditRepository.saveResult({ auditId, result, blobId, walrusUrl });
+
+      // ── Phase 5.5: Anchor on-chain (universal — all plans) ─────────────────
+      let onChainTxDigest: string | undefined;
+      if (this.onChainRegistryService.isConfigured()) {
+        this.auditGateway.emitProgress(auditId, 93, 'Anchoring on Sui blockchain...');
+        try {
+          const contractHash = require('crypto')
+            .createHash('sha256')
+            .update(contractCode)
+            .digest('hex');
+          const riskLevel = this.onChainRegistryService.riskLevelToNumber(
+            result.summary.overallRisk || 'MEDIUM',
+          );
+          onChainTxDigest = await this.onChainRegistryService.anchorAudit(
+            contractHash,
+            blobId,
+            riskLevel,
+          );
+          if (onChainTxDigest) {
+            await this.auditRepository.updateOnChain(auditId, onChainTxDigest);
+          }
+        } catch (chainErr) {
+          this.logger.warn(
+            `⚠️  On-chain anchoring failed for audit [${auditId}]: ${chainErr}`,
+          );
+          // Non-fatal — audit is still valid even without on-chain anchoring
+        }
+      }
 
       // ── Phase 6: Done! ───────────────────────────────────────────────────
       this.auditGateway.emitProgress(auditId, 100, 'Audit complete!');

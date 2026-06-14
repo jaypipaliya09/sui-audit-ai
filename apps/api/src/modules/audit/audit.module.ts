@@ -9,6 +9,7 @@ import { AuditService } from './audit.service.js';
 import { AuditProcessor } from './audit.processor.js';
 import { AuditGateway } from './audit.gateway.js';
 import { AuditRepository } from './audit.repository.js';
+import { OnChainModule } from '../on-chain/on-chain.module.js';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { AuditRepository } from './audit.repository.js';
     ClaudeModule,
     WalrusModule,
     forwardRef(() => ReportModule),
+    OnChainModule,
   ],
   controllers: [AuditController],
   providers: [

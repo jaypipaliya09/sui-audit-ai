@@ -36,6 +36,9 @@ model Audit {
 
   errorMessage  String?
 
+  onChainTxDigest   String?
+  onChainAnchoredAt DateTime?
+
   @@index([status])
   @@index([createdAt])
   @@index([userId])

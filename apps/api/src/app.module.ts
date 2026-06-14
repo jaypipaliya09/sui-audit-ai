@@ -17,6 +17,7 @@ import { AuthModule } from './modules/auth/auth.module.js';
 import { BillingModule } from './modules/billing/billing.module.js';
 import { ApiKeysModule } from './modules/api-keys/api-keys.module.js';
 import { RateLimitModule } from './modules/rate-limiting/rate-limit.module.js';
+import { OnChainModule } from './modules/on-chain/on-chain.module.js';
 
 @Module({
   imports: [
@@ -71,6 +72,7 @@ import { RateLimitModule } from './modules/rate-limiting/rate-limit.module.js';
     BillingModule,
     ApiKeysModule,
     RateLimitModule,
+    OnChainModule,
   ],
   controllers: [AppController, HealthController],
   providers: [

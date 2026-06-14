@@ -153,4 +153,14 @@ export class AuditRepository {
       },
     });
   }
+
+  async updateOnChain(auditId: string, txDigest: string) {
+    return this.prisma.audit.update({
+      where: { id: auditId },
+      data: {
+        onChainTxDigest: txDigest,
+        onChainAnchoredAt: new Date(),
+      },
+    });
+  }
 }
