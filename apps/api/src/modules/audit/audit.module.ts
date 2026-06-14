@@ -6,6 +6,7 @@ import { WalrusModule } from '../walrus/walrus.module.js';
 import { ReportModule } from '../report/report.module.js';
 import { AuditController } from './audit.controller.js';
 import { AuditService } from './audit.service.js';
+import { AuditDiffService } from './audit-diff.service.js';
 import { AuditProcessor } from './audit.processor.js';
 import { AuditGateway } from './audit.gateway.js';
 import { AuditRepository } from './audit.repository.js';
@@ -27,7 +28,8 @@ import { OnChainModule } from '../on-chain/on-chain.module.js';
     AuditProcessor,
     AuditGateway,
     AuditRepository,
+    AuditDiffService,
   ],
-  exports: [AuditRepository, AuditGateway],
+  exports: [AuditRepository, AuditGateway, AuditDiffService],
 })
 export class AuditModule {}

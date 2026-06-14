@@ -11,12 +11,14 @@ import {
   Sse,
   UseGuards,
   ParseUUIDPipe,
+  Query,
 } from '@nestjs/common';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { Observable, of } from 'rxjs';
 import { AuditService } from './audit.service.js';
 import { AuditGateway } from './audit.gateway.js';
 import { AuditRepository } from './audit.repository.js';
+import { AuditDiffService } from './audit-diff.service.js';
 import { SubmitAuditDto } from './dto/submit-audit.dto.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { FlexibleAuthGuard } from '../../common/guards/flexible-auth.guard.js';
@@ -39,6 +41,7 @@ export class AuditController {
     private readonly auditService: AuditService,
     private readonly auditGateway: AuditGateway,
     private readonly auditRepository: AuditRepository,
+    private readonly auditDiffService: AuditDiffService,
   ) {}
 
   // ─── POST /audit/submit ───────────────────────────────────────────────────
@@ -105,6 +108,17 @@ export class AuditController {
 
     // Otherwise stream live events from the gateway
     return this.auditGateway.getEventStream(id);
+  }
+
+  // ─── GET /audit/compare ───────────────────────────────────────────────────
+
+  @Get('compare')
+  @UseGuards(FlexibleAuthGuard)
+  async compare(
+    @Query('previous', ParseUUIDPipe) previousId: string,
+    @Query('current', ParseUUIDPipe) currentId: string,
+  ) {
+    return this.auditDiffService.compareAudits(previousId, currentId);
   }
 
   // ─── GET /audit/:id/report ────────────────────────────────────────────────

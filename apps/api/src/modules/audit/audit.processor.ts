@@ -11,6 +11,7 @@ import { OnChainRegistryService } from '../on-chain/on-chain-registry.service.js
 import { EmailService } from '../email/email.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import type { AuditJobData } from '../claude/types/finding.types.js';
+import * as crypto from 'crypto';
 
 // String constants matching Prisma AuditStatus enum values
 const AuditStatus = {
@@ -53,6 +54,48 @@ export class AuditProcessor extends WorkerHost {
       await this.auditRepository.updateStatus(auditId, AuditStatus.ANALYZING);
       this.auditGateway.emitProgress(auditId, 10, 'Parsing contract structure...');
 
+      // ── Deduplication Check ───────────────────────────────────────────────
+      const contractHash = crypto.createHash('sha256').update(contractCode).digest('hex');
+      const existing = await this.auditRepository.findByHash(contractHash);
+
+      if (existing && existing.status === 'COMPLETE' && existing.blobId && existing.walrusUrl) {
+        this.logger.log(`Cache hit for contract hash, saved Claude API call. Cloning [${existing.id}] to [${auditId}]`);
+        this.auditGateway.emitProgress(auditId, 50, 'Found exact match in cache...');
+        
+        await this.auditRepository.cloneAudit(existing.id, auditId, userId);
+        
+        let onChainTxDigest: string | undefined;
+        if (this.onChainRegistryService.isConfigured()) {
+          this.auditGateway.emitProgress(auditId, 80, 'Anchoring on Sui blockchain...');
+          try {
+            const riskLevel = this.onChainRegistryService.riskLevelToNumber(existing.overallRisk || 'MEDIUM');
+            onChainTxDigest = await this.onChainRegistryService.anchorAudit(contractHash, existing.blobId, riskLevel);
+            if (onChainTxDigest) {
+              await this.auditRepository.updateOnChain(auditId, onChainTxDigest);
+            }
+          } catch (chainErr) {
+            this.logger.warn(`⚠️  On-chain anchoring failed for cloned audit [${auditId}]: ${chainErr}`);
+          }
+        }
+
+        this.auditGateway.emitProgress(auditId, 100, 'Audit complete!');
+        this.auditGateway.emitComplete(auditId, existing.blobId, existing.walrusUrl);
+
+        if (user?.email) {
+          await this.emailService.sendAuditComplete(user.email, {
+            contractName,
+            riskLevel: existing.overallRisk || 'MEDIUM',
+            criticalCount: existing.criticalCount,
+            highCount: existing.highCount,
+            mediumCount: existing.mediumCount,
+            reportUrl: `http://localhost:3000/audits/${auditId}/report`,
+            walrusUrl: existing.walrusUrl,
+            onChainUrl: onChainTxDigest ? `https://suiscan.xyz/testnet/tx/${onChainTxDigest}` : undefined,
+          });
+        }
+        return;
+      }
+
       // ── Phase 2: Claude AI Analysis ───────────────────────────────────────
       const result = await this.claudeService.auditContract(
         contractCode,
@@ -77,16 +120,18 @@ export class AuditProcessor extends WorkerHost {
       // ── Phase 5: Persist Result to DB ─────────────────────────────────────
       this.auditGateway.emitProgress(auditId, 88, 'Saving results...');
       await this.auditRepository.saveResult({ auditId, result, blobId, walrusUrl });
+      
+      // Save contractHash
+      await this.prisma.audit.update({
+        where: { id: auditId },
+        data: { contractHash },
+      });
 
       // ── Phase 5.5: Anchor on-chain (universal — all plans) ─────────────────
       let onChainTxDigest: string | undefined;
       if (this.onChainRegistryService.isConfigured()) {
         this.auditGateway.emitProgress(auditId, 93, 'Anchoring on Sui blockchain...');
         try {
-          const contractHash = require('crypto')
-            .createHash('sha256')
-            .update(contractCode)
-            .digest('hex');
           const riskLevel = this.onChainRegistryService.riskLevelToNumber(
             result.summary.overallRisk || 'MEDIUM',
           );

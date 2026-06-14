@@ -39,10 +39,13 @@ model Audit {
   onChainTxDigest   String?
   onChainAnchoredAt DateTime?
 
+  contractHash      String?
+
   @@index([status])
   @@index([createdAt])
   @@index([userId])
   @@index([orgId])
+  @@index([contractHash])
 }
 
 enum AuditStatus {

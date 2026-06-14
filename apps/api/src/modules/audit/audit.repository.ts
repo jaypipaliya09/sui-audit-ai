@@ -61,6 +61,13 @@ export class AuditRepository {
     return this.prisma.audit.findUnique({ where: { blobId } });
   }
 
+  async findByHash(contractHash: string) {
+    return this.prisma.audit.findFirst({
+      where: { contractHash, status: 'COMPLETE' },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async findAll(params: { page: number; limit: number; status?: AuditStatus }) {
     const { page, limit, status } = params;
     const skip = (page - 1) * limit;
@@ -162,5 +169,33 @@ export class AuditRepository {
         onChainAnchoredAt: new Date(),
       },
     });
+  }
+
+  // ─── Clone (Deduplication) ───────────────────────────────────────────────────
+
+  async cloneAudit(originalAuditId: string, newAuditId: string, userId: string | undefined) {
+    const original = await this.findByIdOrThrow(originalAuditId);
+    
+    const cloned = await this.prisma.audit.update({
+      where: { id: newAuditId },
+      data: {
+        status: 'COMPLETE',
+        overallRisk: original.overallRisk,
+        findingsJson: original.findingsJson ?? undefined,
+        summaryJson: original.summaryJson ?? undefined,
+        blobId: original.blobId,
+        walrusUrl: original.walrusUrl,
+        criticalCount: original.criticalCount,
+        highCount: original.highCount,
+        mediumCount: original.mediumCount,
+        lowCount: original.lowCount,
+        infoCount: original.infoCount,
+        contractHash: original.contractHash,
+        userId,
+      },
+    });
+
+    this.logger.log(`Cloned findings from audit [${originalAuditId}] to new audit [${newAuditId}]`);
+    return cloned;
   }
 }

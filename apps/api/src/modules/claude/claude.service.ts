@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import Anthropic from '@anthropic-ai/sdk';
 import { MOVE_AUDIT_SYSTEM_PROMPT } from './prompts/system-prompt.js';
 import { buildUserPrompt } from './prompts/user-prompt.builder.js';
-import type { AuditResult } from './types/finding.types.js';
+import type { AuditResult, AuditFinding } from './types/finding.types.js';
 import { MetricsService } from '../metrics/metrics.service.js';
 
 @Injectable()
@@ -172,11 +172,100 @@ export class ClaudeService {
       parsed.overallRecommendations = [];
     }
 
+    // ── Phase 4: Compute overall risk from findings ──────────────────
+    parsed.summary.overallRisk = this.computeOverallRisk(parsed.findings) as any;
+
+    // ── Pass 2: Multi-Pass Deep Dive for CRITICAL and HIGH findings ──────
+    if (parsed.findings.some(f => f.severity === 'CRITICAL' || f.severity === 'HIGH')) {
+      onProgress?.(75, 'Performing deep-dive on critical findings...');
+      const deepDivePromises = parsed.findings.map(async (finding) => {
+        if (finding.severity !== 'CRITICAL' && finding.severity !== 'HIGH') {
+          return finding;
+        }
+
+        try {
+          const deepDive = await this.deepDiveFinding(contractCode, finding);
+          if (deepDive.confirmed && deepDive.confidence >= 7) {
+            finding.attackVector = deepDive.attackVector;
+            if (deepDive.refinedRecommendation) {
+              finding.recommendation = deepDive.refinedRecommendation;
+              finding.refinedRecommendation = deepDive.refinedRecommendation;
+            }
+            return finding;
+          }
+          // If not confirmed or confidence too low, we filter it out by returning null
+          this.logger.debug(`Deep dive rejected finding: ${finding.title} (Confirmed: ${deepDive.confirmed}, Confidence: ${deepDive.confidence})`);
+          return null;
+        } catch (err) {
+          this.logger.warn(`Deep dive failed for finding ${finding.title}: ${err}`);
+          return finding; // fallback to original finding
+        }
+      });
+
+      const refinedFindings = (await Promise.all(deepDivePromises)).filter(f => f !== null) as AuditFinding[];
+      parsed.findings = refinedFindings;
+      parsed.summary.overallRisk = this.computeOverallRisk(parsed.findings) as any;
+    }
+
+    onProgress?.(95, 'Finalizing report...');
+
     this.logger.log(
       `Audit complete for "${contractName}": ${parsed.findings.length} findings, overall risk = ${parsed.summary.overallRisk}`,
     );
 
     return parsed;
+  }
+
+  /**
+   * Performs a deep dive on a specific CRITICAL or HIGH finding to verify exploitability.
+   */
+  private async deepDiveFinding(contractCode: string, finding: AuditFinding): Promise<{ confirmed: boolean; confidence: number; attackVector?: string; refinedRecommendation?: string; }> {
+    this.logger.debug(`Deep dive for: ${finding.title}`);
+    
+    const prompt = `You are an elite Sui Move security auditor. 
+Review the following smart contract and a reported security vulnerability.
+Your job is to independently verify if this vulnerability is truly exploitable.
+
+CONTRACT:
+\`\`\`move
+${contractCode}
+\`\`\`
+
+REPORTED VULNERABILITY:
+Title: ${finding.title}
+Severity: ${finding.severity}
+Location: Module ${finding.location.module}, Function ${finding.location.function}
+Description: ${finding.description}
+Impact: ${finding.impact}
+
+Is this finding genuinely exploitable? Analyze the attack surface and contract constraints.
+Output ONLY a JSON object (no markdown, no extra text) with this exact schema:
+{
+  "confirmed": boolean, // true if it is a real vulnerability, false if it's a false positive
+  "confidence": number, // 1 to 10 scale of your confidence in this assessment
+  "attackVector": "Detailed step-by-step explanation of how an attacker would exploit this, or why it's not exploitable",
+  "refinedRecommendation": "A more precise fix for the code (only if confirmed=true)"
+}`;
+
+    const start = Date.now();
+    const response = await this.client.messages.create({
+      model: this.model,
+      max_tokens: 1500,
+      messages: [{ role: 'user', content: prompt }],
+    });
+    
+    const latencyMs = Date.now() - start;
+    await this.metricsService.recordClaudeCall({
+      inputTokens: response.usage?.input_tokens || 0,
+      outputTokens: response.usage?.output_tokens || 0,
+      latencyMs,
+    }).catch(err => this.logger.warn(`Failed to record metrics for deep dive: ${err}`));
+
+    const textBlock = response.content.find((block): block is Anthropic.TextBlock => block.type === 'text');
+    if (!textBlock) throw new Error('No text returned in deep dive');
+
+    const cleaned = textBlock.text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    return JSON.parse(cleaned);
   }
 
   /**
@@ -249,5 +338,22 @@ ${JSON.stringify(contractSummaries, null, 2)}`;
         executiveSummary: 'Cross-contract analysis was unavailable. Individual contract audits are still valid.',
       };
     }
+  }
+
+  /**
+   * Helper: Derive the overall risk level from a list of findings.
+   * If any CRITICAL finding exists -> CRITICAL
+   * If any HIGH finding exists -> HIGH
+   * etc.
+   */
+  private computeOverallRisk(findings: AuditFinding[]): 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'CLEAN' {
+    if (!findings || findings.length === 0) return 'CLEAN';
+    
+    if (findings.some(f => f.severity === 'CRITICAL')) return 'CRITICAL';
+    if (findings.some(f => f.severity === 'HIGH')) return 'HIGH';
+    if (findings.some(f => f.severity === 'MEDIUM')) return 'MEDIUM';
+    if (findings.some(f => f.severity === 'LOW')) return 'LOW';
+    
+    return 'INFO' as any; // INFO falls back or acts as CLEAN
   }
 }

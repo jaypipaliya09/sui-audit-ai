@@ -6,7 +6,9 @@ import {
   ParseIntPipe,
   DefaultValuePipe,
   ParseUUIDPipe,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { ReportService } from './report.service.js';
 
 /**
@@ -20,13 +22,13 @@ import { ReportService } from './report.service.js';
  * NOTE: /reports/blob/:blobId must be declared BEFORE /reports/:id
  * so Express doesn't interpret "blob" as an `:id` param.
  */
-@Controller('reports')
+@Controller()
 export class ReportController {
   constructor(private readonly reportService: ReportService) {}
 
   // ─── GET /reports ─────────────────────────────────────────────────────────
 
-  @Get()
+  @Get('reports')
   async findAll(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
@@ -40,17 +42,61 @@ export class ReportController {
   }
 
   // ─── GET /reports/blob/:blobId ────────────────────────────────────────────
-  // Must be before /:id to avoid route collision
+  // Must be before /reports/:id to avoid route collision
 
-  @Get('blob/:blobId')
+  @Get('reports/blob/:blobId')
   async findByBlobId(@Param('blobId') blobId: string) {
     return this.reportService.findByBlobId(blobId);
   }
 
   // ─── GET /reports/:id ─────────────────────────────────────────────────────
 
-  @Get(':id')
+  @Get('reports/:id')
   async findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.reportService.findById(id);
+  }
+
+  // ─── GET /badge/:blobId ───────────────────────────────────────────────────
+
+  @Get('badge/:blobId')
+  async getBadge(@Param('blobId') blobId: string, @Res() res: Response) {
+    const report = await this.reportService.findByBlobId(blobId);
+    if (!report) {
+      return res.status(404).send('Not Found');
+    }
+
+    const risk = report.overallRisk || 'MEDIUM';
+    const colors: Record<string, string> = {
+      CLEAN: '#16a34a',
+      LOW: '#84cc16',
+      MEDIUM: '#ca8a04',
+      HIGH: '#dc2626',
+      CRITICAL: '#7f1d1d',
+    };
+    const color = colors[risk] || colors.MEDIUM;
+
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="20" role="img" aria-label="MoveAuditor: ${risk}">
+      <title>MoveAuditor: ${risk}</title>
+      <linearGradient id="s" x2="0" y2="100%">
+        <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
+        <stop offset="1" stop-opacity=".1"/>
+      </linearGradient>
+      <clipPath id="r">
+        <rect width="200" height="20" rx="3" fill="#fff"/>
+      </clipPath>
+      <g clip-path="url(#r)">
+        <rect width="120" height="20" fill="#555"/>
+        <rect x="120" width="80" height="20" fill="${color}"/>
+        <rect width="200" height="20" fill="url(#s)"/>
+      </g>
+      <g fill="#fff" text-anchor="middle" font-family="Courier New, monospace" font-size="11" font-weight="bold" text-rendering="geometricPrecision">
+        <text x="60" y="14">MoveAuditor</text>
+        <text x="160" y="14">${risk}</text>
+      </g>
+    </svg>`;
+
+    res.setHeader('Content-Type', 'image/svg+xml');
+    res.setHeader('Cache-Control', 'max-age=86400');
+    return res.status(200).send(svg);
   }
 }
