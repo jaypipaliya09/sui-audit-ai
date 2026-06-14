@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { MOVE_AUDIT_SYSTEM_PROMPT } from './prompts/system-prompt.js';
 import { buildUserPrompt } from './prompts/user-prompt.builder.js';
 import type { AuditResult } from './types/finding.types.js';
+import { MetricsService } from '../metrics/metrics.service.js';
 
 @Injectable()
 export class ClaudeService {
@@ -11,7 +12,7 @@ export class ClaudeService {
   private readonly model = 'claude-sonnet-4-20250514';
   private readonly maxTokens = 4096;
 
-  constructor() {
+  constructor(private readonly metricsService: MetricsService) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey || apiKey === 'sk-ant-YOUR_KEY_HERE') {
       this.logger.warn(
@@ -43,6 +44,7 @@ export class ClaudeService {
 
     let rawText: string;
     try {
+      const start = Date.now();
       const response = await this.client.messages.create({
         model: this.model,
         max_tokens: this.maxTokens,
@@ -54,6 +56,14 @@ export class ClaudeService {
           },
         ],
       });
+      const latencyMs = Date.now() - start;
+
+      // Record metrics
+      await this.metricsService.recordClaudeCall({
+        inputTokens: response.usage?.input_tokens || 0,
+        outputTokens: response.usage?.output_tokens || 0,
+        latencyMs,
+      }).catch((err) => this.logger.warn(`Failed to record Claude metrics: ${err}`));
 
       // Extract text from the response content blocks
       const textBlock = response.content.find(

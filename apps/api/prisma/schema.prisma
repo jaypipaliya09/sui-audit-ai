@@ -248,3 +248,16 @@ model ContractAudit {
 
   @@index([repoAuditId])
 }
+
+model ClaudeCallLog {
+  id           String   @id @default(uuid())
+  auditId      String?
+  inputTokens  Int
+  outputTokens Int
+  latencyMs    Int
+  costUsd      Float
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([auditId])
+}

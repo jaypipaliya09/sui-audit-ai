@@ -22,6 +22,8 @@ import { GitHubModule } from './modules/github/github.module.js';
 import { RepoAuditModule } from './modules/repo-audit/repo-audit.module.js';
 import { EmailModule } from './modules/email/email.module.js';
 import { LoggerModule } from './common/logger/logger.module.js';
+import { MetricsModule } from './modules/metrics/metrics.module.js';
+import { AdminModule } from './modules/admin/admin.module.js';
 
 @Module({
   imports: [
@@ -81,6 +83,8 @@ import { LoggerModule } from './common/logger/logger.module.js';
     RepoAuditModule,
     EmailModule,
     LoggerModule,
+    MetricsModule,
+    AdminModule,
   ],
   controllers: [AppController, HealthController],
   providers: [

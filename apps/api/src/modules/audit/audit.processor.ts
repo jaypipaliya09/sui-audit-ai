@@ -138,6 +138,22 @@ export class AuditProcessor extends WorkerHost {
 
       this.auditGateway.emitError(auditId, errMsg);
 
+      // ── Alert Webhook (Slack/Discord) ─────────────────────────────────────
+      const alertUrl = process.env.ALERT_WEBHOOK_URL;
+      if (alertUrl && job.attemptsMade >= (job.opts?.attempts || 3) - 1) {
+        try {
+          await fetch(alertUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              text: `🚨 Audit failed\nID: ${auditId}\nUser: ${userId}\nError: ${errMsg}\nContract: ${contractName}\nAttempt: ${job.attemptsMade + 1}`,
+            }),
+          });
+        } catch (webhookErr) {
+          this.logger.warn(`Alert webhook failed: ${webhookErr}`);
+        }
+      }
+
       if (user?.email) {
         await this.emailService.sendAuditFailed(user.email, {
           contractName,

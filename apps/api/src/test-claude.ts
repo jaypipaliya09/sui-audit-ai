@@ -56,7 +56,8 @@ async function main() {
   console.log(`Contract: ${contractCode.split('\n').length} lines\n`);
 
   // Create the service directly (bypassing NestJS DI for this test)
-  const service = new ClaudeService();
+  const mockMetrics = { recordClaudeCall: async () => {} } as any;
+  const service = new ClaudeService(mockMetrics);
 
   try {
     const result = await service.auditContract(
