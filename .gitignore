@@ -8,6 +8,7 @@ dist
 .next
 out
 build
+*.tsbuildinfo
 
 # Env files
 .env
@@ -27,3 +28,9 @@ Thumbs.db
 
 # Turbo
 .turbo
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo

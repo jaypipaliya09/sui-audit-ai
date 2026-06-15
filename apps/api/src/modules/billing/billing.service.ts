@@ -153,13 +153,17 @@ export class BillingService {
   }
 
   async checkAndIncrementUsage(userId: string, count: number = 1): Promise<boolean> {
+    // TEMPORARY BYPASS FOR TESTING — remove this when billing is live
+    this.logger.debug(`[BYPASS] Skipping billing check for userId=${userId}, count=${count}`);
+    return true;
+
+    /* Original billing logic — uncomment when Stripe is configured
     let sub = await this.billingRepository.findByUserId(userId);
     const user = await this.usersService.findById(userId);
 
     if (!user) return false;
 
     if (!sub) {
-      // Create a Stripe customer and free subscription on the fly
       try {
         const customer = await this.stripe.customers.create({
           email: user.email,
@@ -183,7 +187,6 @@ export class BillingService {
        return false;
     }
 
-    // Check if crossing 80% threshold
     const currentPct = sub.auditsUsedThisPeriod / sub.auditsLimit;
     const newPct = (sub.auditsUsedThisPeriod + count) / sub.auditsLimit;
     
@@ -200,5 +203,6 @@ export class BillingService {
 
     await this.billingRepository.incrementUsage(userId, count);
     return true;
+    */
   }
 }

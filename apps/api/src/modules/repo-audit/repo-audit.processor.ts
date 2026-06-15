@@ -61,16 +61,18 @@ export class RepoAuditProcessor extends WorkerHost {
       const fileContents = await this.githubService.fetchAllMoveFiles(moveFiles as any);
 
       // Create ContractAudit records
-      const contractAudits: { id: string; fileName: string; filePath: string; content: string }[] = [];
+      const contractAudits: { id: string; fileName: string; filePath: string; content: string; contractHash: string }[] = [];
       for (const { file, content } of fileContents) {
+        const contractHash = crypto.createHash('sha256').update(content).digest('hex');
         const ca = await this.repoAuditService.createContractAudit({
           repoAuditId,
           filePath: file.path,
           fileName: file.name,
           fileContent: content,
           lineCount: content.split('\n').length,
+          contractHash,
         });
-        contractAudits.push({ id: ca.id, fileName: file.name, filePath: file.path, content });
+        contractAudits.push({ id: ca.id, fileName: file.name, filePath: file.path, content, contractHash });
       }
 
       // ── PHASE 2 (10-80%): Audit each contract ────────────────────────

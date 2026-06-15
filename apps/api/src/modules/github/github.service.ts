@@ -93,7 +93,7 @@ export class GitHubService {
     if (moveFiles.length === 0) {
       throw new BadRequestException('No Move (.move) files found in this repository');
     }
-    if (moveFiles.length > 50) {
+    if (moveFiles.length > 170) {
       throw new BadRequestException(`Too many Move files (${moveFiles.length}). Maximum is 50.`);
     }
 

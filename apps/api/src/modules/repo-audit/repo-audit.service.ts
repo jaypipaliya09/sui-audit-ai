@@ -40,6 +40,13 @@ export class RepoAuditService {
     });
   }
 
+  async findByBlobId(blobId: string) {
+    return this.prisma.repoAudit.findFirst({
+      where: { blobId },
+      include: { contractAudits: true },
+    });
+  }
+
   async findByUserId(userId: string, page: number = 1, limit: number = 10) {
     const skip = (page - 1) * limit;
     const [data, total] = await Promise.all([
@@ -86,6 +93,7 @@ export class RepoAuditService {
     fileName: string;
     fileContent: string;
     lineCount: number;
+    contractHash?: string;
   }) {
     return this.prisma.contractAudit.create({ data: data as any });
   }

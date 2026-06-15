@@ -142,6 +142,10 @@ class ApiClient {
     return this.request<any>(`/repo-audit/${id}/report`);
   }
 
+  async getRepoReportByBlobId(blobId: string) {
+    return this.request<any>(`/repo-audit/blob/${blobId}`);
+  }
+
   async listRepoAudits(page = 1, limit = 10) {
     return this.request<any>(`/repo-audit?page=${page}&limit=${limit}`);
   }

@@ -140,6 +140,34 @@ export class RepoAuditController {
     return this.repoAuditGateway.getEventStream(id) as any;
   }
 
+  @Get('blob/:blobId')
+  async getByBlobId(@Param('blobId') blobId: string) {
+    const repoAudit = await this.repoAuditService.findByBlobId(blobId);
+    if (!repoAudit) {
+      throw new NotFoundException(`Repo audit with blobId "${blobId}" not found`);
+    }
+    const crossJson = repoAudit.crossContractJson as any;
+    // Shape it like the frontend expects: similar to single audit but with repo fields
+    return {
+      ...repoAudit,
+      findingsJson: {
+        summary: {
+          executiveSummary: crossJson?.executiveSummary || '',
+          overallRisk: repoAudit.overallRisk,
+        },
+        sharedRisks: crossJson?.sharedRisks || [],
+        systemicPatterns: crossJson?.systemicPatterns || [],
+        missingSystemFeatures: crossJson?.missingSystemFeatures || [],
+        perContractFindings: repoAudit.contractAudits.map(ca => ({
+          fileName: ca.fileName,
+          overallRisk: ca.overallRisk,
+          contractHash: ca.contractHash,
+          findings: Array.isArray(ca.findingsJson) ? ca.findingsJson : [],
+        })),
+      }
+    };
+  }
+
   @Get(':id/report')
   async getReport(@Param('id', ParseUUIDPipe) id: string) {
     const repoAudit = await this.repoAuditService.findById(id);

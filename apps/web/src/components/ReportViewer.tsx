@@ -23,6 +23,7 @@ interface ReportViewerProps {
     mediumCount: number;
     lowCount: number;
     infoCount: number;
+    contractHash?: string;
     findingsJson: AuditFinding[];
     summaryJson: AuditSummary & {
       gasAnalysis?: GasAnalysis;
@@ -36,6 +37,7 @@ export function ReportViewer({ audit }: ReportViewerProps) {
   const isClean = audit.overallRisk === 'CLEAN';
   const [copied, setCopied] = useState(false);
   const [badgeCopied, setBadgeCopied] = useState(false);
+  const [hashCopied, setHashCopied] = useState(false);
   const [currentUrl, setCurrentUrl] = useState('');
 
   React.useEffect(() => {
@@ -58,6 +60,13 @@ export function ReportViewer({ audit }: ReportViewerProps) {
     await navigator.clipboard.writeText(markdown);
     setBadgeCopied(true);
     setTimeout(() => setBadgeCopied(false), 2000);
+  };
+
+  const handleCopyHash = async () => {
+    if (!audit.contractHash) return;
+    await navigator.clipboard.writeText(audit.contractHash);
+    setHashCopied(true);
+    setTimeout(() => setHashCopied(false), 2000);
   };
 
   const SEVERITY_COUNTS = [
@@ -85,6 +94,17 @@ export function ReportViewer({ audit }: ReportViewerProps) {
             <span>{summary.moduleCount} modules</span>
             <span className="text-zinc-700">•</span>
             <span>{summary.lineCount} lines</span>
+            {audit.contractHash && (
+              <>
+                <span className="text-zinc-700">•</span>
+                <span className="flex items-center gap-1.5 font-mono text-[11px] bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded text-zinc-400">
+                  {audit.contractHash.substring(0, 10)}...{audit.contractHash.substring(audit.contractHash.length - 8)}
+                  <button onClick={handleCopyHash} className="hover:text-white transition-colors" title="Copy full hash">
+                    {hashCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                  </button>
+                </span>
+              </>
+            )}
           </div>
         </div>
         <div className="flex flex-col items-start md:items-end gap-2.5">

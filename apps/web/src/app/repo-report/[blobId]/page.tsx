@@ -7,7 +7,7 @@ import { RiskBadge } from '@/components/RiskBadge';
 import { WalrusLink } from '@/components/WalrusLink';
 import {
   Loader2, GitBranch, FileCode2, AlertTriangle,
-  ChevronDown, ChevronRight, ExternalLink, Shield, Lightbulb,
+  ChevronDown, ChevronRight, ExternalLink, Shield, Lightbulb, Copy
 } from 'lucide-react';
 
 export default function RepoReportPage() {
@@ -19,7 +19,7 @@ export default function RepoReportPage() {
   const [openContracts, setOpenContracts] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    api.getReportByBlobId(blobId)
+    api.getRepoReportByBlobId(blobId)
       .then(setReport)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -143,9 +143,27 @@ export default function RepoReportPage() {
                     <span className="text-[10px] text-zinc-700 ml-1">{cFindings.length} findings</span>
                   </button>
 
-                  {isOpen && cFindings.length > 0 && (
+                  {isOpen && (
                     <div className="border-t border-zinc-800/40 px-4 py-3 space-y-2">
-                      {cFindings.map((finding: any, j: number) => (
+                      {contract.contractHash && (
+                        <div className="mb-3 flex items-center justify-between p-2 rounded bg-zinc-900 border border-zinc-800/60">
+                          <div>
+                            <div className="text-[10px] text-zinc-500 font-medium mb-0.5 uppercase tracking-wider">Contract Hash</div>
+                            <div className="text-[11px] text-zinc-300 font-mono">{contract.contractHash}</div>
+                          </div>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(contract.contractHash);
+                              // We could add a toast here, but simple copy is fine
+                            }}
+                            className="p-1.5 hover:bg-zinc-800 rounded text-zinc-500 hover:text-white transition-colors"
+                            title="Copy to Verify"
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+                      {cFindings.length > 0 ? cFindings.map((finding: any, j: number) => (
                         <div key={j} className="p-3 bg-zinc-900/50 rounded-lg">
                           <div className="flex items-center gap-2 mb-1.5">
                             <RiskBadge level={finding.severity || 'INFO'} />
@@ -159,7 +177,9 @@ export default function RepoReportPage() {
                             </div>
                           )}
                         </div>
-                      ))}
+                      )) : (
+                        <div className="text-xs text-zinc-500 italic p-2 text-center">No vulnerabilities found in this contract.</div>
+                      )}
                     </div>
                   )}
                 </div>
