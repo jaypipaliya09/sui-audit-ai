@@ -22,7 +22,7 @@ class ApiClient {
     const res = await fetch(`${API_URL}${path}`, {
       ...options,
       headers,
-      credentials: 'include', // send cookies for refresh token
+      credentials: 'include',
     });
 
     // Auto-refresh on 401
@@ -41,7 +41,6 @@ class ApiClient {
         }
         return retryRes.json();
       } else {
-        // Refresh failed — clear token
         localStorage.removeItem('token');
         window.location.href = '/login';
         throw new Error('Session expired');
@@ -97,6 +96,17 @@ class ApiClient {
     return this.request<{ message: string }>('/auth/logout', { method: 'POST' });
   }
 
+  async getSuiNonce(address: string) {
+    return this.request<{ nonce: string }>(`/auth/sui/nonce?address=${address}`);
+  }
+
+  async verifySuiSignature(data: { address: string; signedMessage: string; signature: string }) {
+    return this.request<{ accessToken: string; user: any }>('/auth/sui/verify', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
   // ── Audits ──
   async submitAudit(data: { contractCode: string; contractName: string; txDigest?: string }) {
     return this.request<{ auditId: string }>('/audit/submit', {
@@ -107,6 +117,10 @@ class ApiClient {
 
   async getAuditReport(id: string) {
     return this.request<any>(`/audit/${id}/report`);
+  }
+
+  async compareAudits(previousId: string, currentId: string) {
+    return this.request<any>(`/audit/compare?previous=${previousId}&current=${currentId}`);
   }
 
   // ── Repo Audits ──
@@ -151,6 +165,14 @@ class ApiClient {
   }
 
   // ── Admin ──
+  async getAdminMetrics() {
+    return this.request<any>('/admin/metrics');
+  }
+
+  async getAdminAudits(page = 1, limit = 10) {
+    return this.request<any>(`/admin/audits?page=${page}&limit=${limit}`);
+  }
+
   async getAdminUsers(page = 1, limit = 20) {
     return this.request<any>(`/admin/users?page=${page}&limit=${limit}`);
   }

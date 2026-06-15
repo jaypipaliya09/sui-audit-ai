@@ -6,9 +6,9 @@ import { Shield, Clock, Globe, Lock } from 'lucide-react';
 
 const AUDIT_FACTS = [
   { icon: Shield, text: 'Analyzing 14 vulnerability categories' },
-  { icon: Clock, text: 'Most audits complete in under 60 seconds' },
-  { icon: Globe, text: 'Report will be stored permanently on Walrus' },
-  { icon: Lock, text: 'Your source code is never stored permanently' },
+  { icon: Clock, text: 'Most audits complete in under 60s' },
+  { icon: Globe, text: 'Stored permanently on Walrus' },
+  { icon: Lock, text: 'Source code is never stored' },
 ];
 
 export default function AuditProgressPage({ params }: { params: { id: string } }) {
@@ -19,35 +19,36 @@ export default function AuditProgressPage({ params }: { params: { id: string } }
   };
 
   return (
-    <main className="min-h-screen bg-[#0d1117] flex flex-col items-center justify-center p-4 pt-24">
-      {/* Hero text */}
-      <div className="w-full max-w-3xl text-center mb-10 space-y-3">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-blue-500/30 bg-blue-500/10 text-blue-400 text-sm font-medium mb-2">
-          <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+    <main className="min-h-screen bg-[#09090b] flex flex-col items-center justify-center p-4 pt-20">
+      {/* Header */}
+      <div className="w-full max-w-2xl text-center mb-10 animate-fadeIn">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-indigo-500/20 bg-indigo-500/8 text-indigo-400 text-xs font-medium mb-4">
+          <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
           AI Analysis Running
         </div>
-        <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight">
+        <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight mb-2">
           Auditing Your Contract
         </h1>
-        <p className="text-gray-500 max-w-lg mx-auto text-sm">
-          Please keep this tab open. Claude Sonnet 4 is analyzing your contract for security vulnerabilities.
+        <p className="text-xs text-zinc-500 max-w-md mx-auto">
+          Claude Sonnet 4 is analyzing your contract for security vulnerabilities.
+          Keep this tab open.
         </p>
       </div>
 
-      {/* Progress Card */}
-      <div className="w-full max-w-2xl">
+      {/* Progress */}
+      <div className="w-full max-w-xl animate-fadeInUp" style={{ animationDelay: '0.15s' }}>
         <AuditProgress auditId={params.id} onComplete={handleComplete} />
       </div>
 
-      {/* Info cards below */}
-      <div className="w-full max-w-2xl mt-8 grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {/* Info cards */}
+      <div className="w-full max-w-xl mt-8 grid grid-cols-2 sm:grid-cols-4 gap-2 animate-fadeInUp" style={{ animationDelay: '0.3s' }}>
         {AUDIT_FACTS.map((fact) => (
           <div
             key={fact.text}
-            className="flex flex-col items-center gap-2 p-3 rounded-xl border border-[#21262d] bg-[#161b22] text-center"
+            className="flex flex-col items-center gap-2 p-3 rounded-lg border border-zinc-800/50 bg-zinc-900/50 text-center"
           >
-            <fact.icon className="w-4 h-4 text-gray-500" />
-            <p className="text-xs text-gray-600 leading-snug">{fact.text}</p>
+            <fact.icon className="w-3.5 h-3.5 text-zinc-600" />
+            <p className="text-[11px] text-zinc-600 leading-snug">{fact.text}</p>
           </div>
         ))}
       </div>

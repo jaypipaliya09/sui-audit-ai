@@ -1,49 +1,48 @@
 'use client';
 
-import React, { useState } from 'react';
-import { ExternalLink, Copy, Check } from 'lucide-react';
+import { Copy, Check, ExternalLink, Database } from 'lucide-react';
+import { useState } from 'react';
 
 interface WalrusLinkProps {
   blobId: string;
-  walrusUrl: string;
+  walrusUrl?: string;
 }
 
 export function WalrusLink({ blobId, walrusUrl }: WalrusLinkProps) {
   const [copied, setCopied] = useState(false);
+  const url = walrusUrl || `https://aggregator-devnet.walrus.space/v1/blobs/${blobId}`;
 
   const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(walrusUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy', err);
-    }
+    await navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
-    <div className="bg-[#121212] border border-gray-800 rounded-lg p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-      <div>
-        <h4 className="text-white font-medium mb-1">Permanently Stored on Walrus Network</h4>
-        <p className="text-sm text-gray-400 font-mono break-all">{blobId}</p>
+    <div className="flex items-center gap-3 p-4 rounded-lg surface">
+      <div className="w-9 h-9 rounded-lg bg-cyan-500/10 border border-cyan-500/15 flex items-center justify-center shrink-0">
+        <Database className="w-4 h-4 text-cyan-400" />
       </div>
-      
-      <div className="flex gap-2 w-full sm:w-auto">
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-medium text-zinc-400 mb-0.5">Permanent Storage — Walrus Network</p>
+        <p className="text-xs text-zinc-600 font-mono truncate">{blobId}</p>
+      </div>
+      <div className="flex items-center gap-1.5 shrink-0">
         <button
           onClick={handleCopy}
-          className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium rounded-lg transition-colors"
+          className="p-2 rounded-md hover:bg-white/5 text-zinc-500 hover:text-white transition-colors"
+          title="Copy URL"
         >
-          {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
-          {copied ? 'Copied' : 'Copy URL'}
+          {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
         </button>
         <a
-          href={walrusUrl}
+          href={url}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors"
+          className="p-2 rounded-md hover:bg-white/5 text-zinc-500 hover:text-white transition-colors"
+          title="View on Walrus"
         >
-          <ExternalLink className="w-4 h-4" />
-          View Raw
+          <ExternalLink className="w-3.5 h-3.5" />
         </a>
       </div>
     </div>

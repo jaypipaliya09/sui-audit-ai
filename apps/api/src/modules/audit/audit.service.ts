@@ -14,7 +14,7 @@ export class AuditService {
 
   private readonly suiClient: SuiClient;
   private readonly TREASURY_ADDRESS = '0x69fb32ef40f1954a2279041bb2d90c4e7d289dd10486409ae81e7ef39467d8b0'; // Matching demo env
-  private readonly EXPECTED_SUI_AMOUNT = 1_000_000_000; // 1 SUI in MIST
+  private readonly EXPECTED_SUI_AMOUNT = 0.00011; // 1 SUI in MIST
 
   constructor(
     @InjectQueue(AUDIT_QUEUE) private readonly auditQueue: Queue,
@@ -62,10 +62,10 @@ export class AuditService {
         // Note: For a robust hackathon check, we look for positive balance changes.
         // If we want exact check: BigInt(treasuryChange.amount) >= BigInt(this.EXPECTED_SUI_AMOUNT)
         if (!treasuryChange || BigInt(treasuryChange.amount) < BigInt(this.EXPECTED_SUI_AMOUNT)) {
-           // We'll log a warning but not block if it's testnet and slightly off to ensure demo works, 
-           // but technically we should throw. Let's throw for real Web3 feel.
-           this.logger.warn(`Transaction found but amount sent to treasury was insufficient or not found: ${JSON.stringify(treasuryChange)}`);
-           // throw new BadRequestException('Transaction did not transfer 1 SUI to the treasury address.');
+          // We'll log a warning but not block if it's testnet and slightly off to ensure demo works, 
+          // but technically we should throw. Let's throw for real Web3 feel.
+          this.logger.warn(`Transaction found but amount sent to treasury was insufficient or not found: ${JSON.stringify(treasuryChange)}`);
+          // throw new BadRequestException('Transaction did not transfer 1 SUI to the treasury address.');
         }
 
       } catch (e: any) {

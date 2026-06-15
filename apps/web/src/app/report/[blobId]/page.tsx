@@ -48,14 +48,14 @@ export default async function ReportPage({
   }
 
   return (
-    <main className="min-h-screen bg-[#0d1117] text-gray-200 pt-24 pb-20 px-4 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-[#09090b] text-gray-200 pt-20 pb-20 px-4 sm:px-6">
       {/* Breadcrumb */}
-      <div className="max-w-5xl mx-auto mb-8">
+      <div className="max-w-4xl mx-auto mb-6">
         <Link
           href="/"
-          className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-200 transition-colors"
+          className="inline-flex items-center gap-1 text-xs text-zinc-600 hover:text-zinc-300 transition-colors"
         >
-          <ChevronLeft className="w-4 h-4" />
+          <ChevronLeft className="w-3.5 h-3.5" />
           Back to Home
         </Link>
       </div>

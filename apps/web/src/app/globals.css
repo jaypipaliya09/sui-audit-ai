@@ -3,15 +3,25 @@
 @tailwind utilities;
 
 :root {
-  --background: #0d1117;
-  --surface: #161b22;
-  --surface-2: #21262d;
-  --border: #30363d;
-  --text-primary: #f0f6fc;
-  --text-secondary: #8b949e;
-  --accent: #4f8ef7;
-  --accent-purple: #a371f7;
-  --accent-glow: rgba(79, 142, 247, 0.15);
+  --bg-primary: #09090b;
+  --bg-secondary: #111113;
+  --bg-tertiary: #18181b;
+  --bg-elevated: #1c1c1f;
+  --border-subtle: #27272a;
+  --border-default: #2e2e32;
+  --border-strong: #3f3f46;
+  --text-primary: #fafafa;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+  --text-faint: #52525b;
+  --accent: #6366f1;
+  --accent-hover: #818cf8;
+  --accent-muted: rgba(99, 102, 241, 0.12);
+  --accent-subtle: rgba(99, 102, 241, 0.06);
+  --success: #22c55e;
+  --warning: #eab308;
+  --danger: #ef4444;
+  --info: #3b82f6;
 }
 
 * {
@@ -24,116 +34,185 @@ html {
 
 body {
   color: var(--text-primary);
-  background: var(--background);
+  background: var(--bg-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ─── Custom Scrollbar ───────────────────────────────────────────── */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-::-webkit-scrollbar-track {
-  background: var(--surface);
-}
-::-webkit-scrollbar-thumb {
-  background: var(--surface-2);
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #3d444d;
+/* ─── Selection ────────────────────────────────────────────────── */
+::selection {
+  background: rgba(99, 102, 241, 0.3);
+  color: #fff;
 }
 
-/* ─── Shimmer Skeleton Animation ─────────────────────────────────── */
+/* ─── Scrollbar ────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-subtle);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-strong);
+}
+
+/* ─── Animations ───────────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
 @keyframes shimmer {
   0% { background-position: -700px 0; }
   100% { background-position: 700px 0; }
 }
 
-.skeleton {
-  background: linear-gradient(
-    90deg,
-    #161b22 25%,
-    #21262d 50%,
-    #161b22 75%
-  );
-  background-size: 700px 100%;
-  animation: shimmer 1.8s ease-in-out infinite;
-  border-radius: 6px;
+@keyframes pulse-ring {
+  0% { transform: scale(0.9); opacity: 0.6; }
+  50% { transform: scale(1.1); opacity: 0; }
+  100% { transform: scale(0.9); opacity: 0; }
 }
 
-/* ─── Glow Pulse ─────────────────────────────────────────────────── */
-@keyframes glow-pulse {
-  0%, 100% { opacity: 0.4; }
-  50%       { opacity: 0.8; }
-}
-
-@keyframes float-up {
-  0%   { transform: translateY(0px); }
-  50%  { transform: translateY(-8px); }
-  100% { transform: translateY(0px); }
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 @keyframes gradient-shift {
-  0%   { background-position: 0% 50%; }
-  50%  { background-position: 100% 50%; }
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
 }
 
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to   { opacity: 1; transform: translateY(0); }
+@keyframes float-gentle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
 }
 
-/* ─── Utility classes ────────────────────────────────────────────── */
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
+/* ─── Utility Classes ──────────────────────────────────────────── */
+/* ─── Component-level styles (overridable by utilities) ────────── */
+@layer components {
+  /* Input base styles — in @layer components so utility classes
+     like pl-10 can override the default padding */
+  .input-base {
+    @apply w-full bg-[#09090b] border border-[#27272a] rounded-lg px-3.5 py-2.5 text-sm text-white
+           placeholder-zinc-600 transition-colors duration-150
+           focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20;
   }
+
+  /* Button variants */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5
+           bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700
+           text-white text-sm font-medium rounded-lg
+           transition-all duration-150
+           shadow-sm shadow-indigo-500/10;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5
+           bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-900
+           text-zinc-200 text-sm font-medium rounded-lg
+           border border-zinc-700 hover:border-zinc-600
+           transition-all duration-150;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5
+           text-zinc-400 hover:text-white hover:bg-white/5
+           text-sm font-medium rounded-lg
+           transition-all duration-150;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5
+           bg-red-600/10 hover:bg-red-600/20 text-red-400
+           text-sm font-medium rounded-lg border border-red-500/20
+           transition-all duration-150;
+  }
+
+  /* Card surface */
+  .surface {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+  }
+
+  .surface-elevated {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-default);
+  }
+}
+
+@layer utilities {
+  .animate-fadeIn { animation: fadeIn 0.3s ease both; }
+  .animate-fadeInUp { animation: fadeInUp 0.5s ease both; }
+  .animate-fadeInDown { animation: fadeInDown 0.3s ease both; }
+  .animate-slideInRight { animation: slideInRight 0.4s ease both; }
+  .animate-scaleIn { animation: scaleIn 0.3s ease both; }
+  .animate-float { animation: float-gentle 3s ease-in-out infinite; }
 
   .font-mono {
     font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   }
 
+  /* Refined gradient text — used sparingly */
   .gradient-text {
-    background: linear-gradient(135deg, #4f8ef7 0%, #a371f7 50%, #58d5e8 100%);
+    background: linear-gradient(135deg, #6366f1 0%, #a78bfa 50%, #818cf8 100%);
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    background-size: 200% 200%;
-    animation: gradient-shift 4s ease infinite;
   }
 
+  /* Skeleton loading */
+  .skeleton {
+    background: linear-gradient(90deg, #18181b 25%, #27272a 50%, #18181b 75%);
+    background-size: 700px 100%;
+    animation: shimmer 1.8s ease-in-out infinite;
+    border-radius: 6px;
+  }
+
+  /* Subtle glass effect — used sparingly */
   .glass {
-    background: rgba(22, 27, 34, 0.85);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(48, 54, 61, 0.6);
+    background: rgba(17, 17, 19, 0.8);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
   }
 
-  .glow-border {
-    border: 1px solid rgba(79, 142, 247, 0.3);
-    box-shadow: 0 0 20px rgba(79, 142, 247, 0.08), inset 0 0 20px rgba(79, 142, 247, 0.03);
+  /* Focus ring for accessibility */
+  .focus-ring {
+    @apply focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:ring-offset-0;
   }
 
-  .animate-fadeInUp {
-    animation: fadeInUp 0.6s ease both;
-  }
-
-  .animate-float {
-    animation: float-up 4s ease-in-out infinite;
-  }
-
-  .animate-glow-pulse {
-    animation: glow-pulse 3s ease-in-out infinite;
-  }
-
-  /* Hero grid background */
+  /* Hero grid background — subtle */
   .hero-grid {
     background-image:
-      linear-gradient(rgba(79, 142, 247, 0.04) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(79, 142, 247, 0.04) 1px, transparent 1px);
-    background-size: 40px 40px;
+      linear-gradient(rgba(99, 102, 241, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(99, 102, 241, 0.03) 1px, transparent 1px);
+    background-size: 48px 48px;
   }
 }

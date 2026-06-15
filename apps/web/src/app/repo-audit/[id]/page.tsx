@@ -38,10 +38,7 @@ export default function RepoAuditProgressPage() {
         setStatus('processing');
         setOverallPct(data.pct || 0);
         setMessage(data.message || 'Processing...');
-
-        if (data.files) {
-          setFiles(data.files);
-        }
+        if (data.files) setFiles(data.files);
       } catch {}
     });
 
@@ -64,10 +61,7 @@ export default function RepoAuditProgressPage() {
         setMessage('Repo audit complete!');
         setBlobId(data.blobId);
         eventSource.close();
-
-        setTimeout(() => {
-          router.push(`/repo-report/${data.blobId}`);
-        }, 2000);
+        setTimeout(() => router.push(`/repo-report/${data.blobId}`), 2000);
       } catch {}
     });
 
@@ -99,21 +93,25 @@ export default function RepoAuditProgressPage() {
   }, [id, router]);
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] pt-24 pb-16">
-      <div className="max-w-3xl mx-auto px-4">
+    <div className="min-h-screen bg-[#09090b] pt-20 pb-16">
+      <div className="max-w-2xl mx-auto px-4">
         {/* Header */}
-        <div className="text-center mb-10">
-          <h1 className="text-2xl font-bold text-white mb-2">Repository Audit</h1>
-          <p className="text-gray-500 text-sm">{message}</p>
+        <div className="text-center mb-8 animate-fadeIn">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-indigo-500/20 bg-indigo-500/8 text-indigo-400 text-xs font-medium mb-4">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+            Repository Audit
+          </div>
+          <h1 className="text-xl font-bold text-white mb-1">Auditing Repository</h1>
+          <p className="text-xs text-zinc-500">{message}</p>
         </div>
 
-        {/* Progress Bar */}
-        <div className="mb-8">
-          <div className="flex justify-between text-sm mb-2">
-            <span className="text-gray-500">Overall Progress</span>
+        {/* Progress bar */}
+        <div className="mb-6 animate-fadeInUp">
+          <div className="flex justify-between text-xs mb-1.5">
+            <span className="text-zinc-500">Progress</span>
             <span className="text-white font-medium">{Math.round(overallPct)}%</span>
           </div>
-          <div className="w-full h-3 bg-[#1a1a1a] rounded-full overflow-hidden border border-[#2a2a2a]">
+          <div className="w-full h-2 bg-zinc-900 rounded-full overflow-hidden border border-zinc-800">
             <div
               className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-500"
               style={{ width: `${overallPct}%` }}
@@ -121,54 +119,59 @@ export default function RepoAuditProgressPage() {
           </div>
         </div>
 
-        {/* File Progress List */}
+        {/* File list */}
         {files.length > 0 && (
-          <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl overflow-hidden mb-8">
+          <div className="rounded-lg surface overflow-hidden mb-6 animate-fadeInUp" style={{ animationDelay: '0.1s' }}>
             {files.map((file, i) => (
-              <div key={i} className={`flex items-center gap-3 px-4 py-3 ${i !== files.length - 1 ? 'border-b border-[#2a2a2a]' : ''}`}>
-                <FileCode2 className="w-4 h-4 text-gray-600 shrink-0" />
-                <span className="flex-1 text-sm text-white truncate">{file.name || file.path}</span>
+              <div
+                key={i}
+                className={`flex items-center gap-3 px-4 py-2.5 ${
+                  i !== files.length - 1 ? 'border-b border-zinc-800/40' : ''
+                }`}
+              >
+                <FileCode2 className="w-3.5 h-3.5 text-zinc-600 shrink-0" />
+                <span className="flex-1 text-xs text-white truncate">{file.name || file.path}</span>
                 {file.status === 'queued' && (
-                  <span className="text-xs text-gray-600 font-medium">Queued</span>
+                  <span className="text-[10px] text-zinc-700 font-medium">Queued</span>
                 )}
                 {file.status === 'auditing' && (
-                  <Loader2 className="w-4 h-4 text-indigo-400 animate-spin" />
+                  <Loader2 className="w-3.5 h-3.5 text-indigo-400 animate-spin" />
                 )}
                 {file.status === 'done' && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <RiskBadge level={file.risk || 'CLEAN'} />
-                    <CheckCircle2 className="w-4 h-4 text-green-400" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                   </div>
                 )}
                 {file.status === 'failed' && (
-                  <XCircle className="w-4 h-4 text-red-400" />
+                  <XCircle className="w-3.5 h-3.5 text-red-400" />
                 )}
               </div>
             ))}
           </div>
         )}
 
-        {/* Complete State */}
+        {/* Complete */}
         {status === 'complete' && blobId && (
-          <div className="text-center bg-green-500/5 border border-green-500/20 rounded-2xl p-8">
-            <CheckCircle2 className="w-12 h-12 text-green-400 mx-auto mb-4" />
-            <h2 className="text-xl font-bold text-white mb-2">Audit Complete!</h2>
-            <p className="text-gray-400 text-sm mb-4">Redirecting to your report...</p>
+          <div className="text-center bg-emerald-500/[0.04] border border-emerald-500/15 rounded-xl p-8 animate-scaleIn">
+            <CheckCircle2 className="w-10 h-10 text-emerald-400 mx-auto mb-3" />
+            <h2 className="text-lg font-semibold text-white mb-1">Audit Complete!</h2>
+            <p className="text-xs text-zinc-500 mb-4">Redirecting to your report...</p>
             <button
               onClick={() => router.push(`/repo-report/${blobId}`)}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl transition-all"
+              className="btn-primary text-xs py-2"
             >
-              View Report <ArrowRight className="w-4 h-4" />
+              View Report <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
         )}
 
-        {/* Error State */}
+        {/* Error */}
         {status === 'error' && (
-          <div className="text-center bg-red-500/5 border border-red-500/20 rounded-2xl p-8">
-            <XCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-            <h2 className="text-xl font-bold text-white mb-2">Audit Failed</h2>
-            <p className="text-gray-400 text-sm">{error}</p>
+          <div className="text-center bg-red-500/[0.04] border border-red-500/15 rounded-xl p-8">
+            <XCircle className="w-10 h-10 text-red-400 mx-auto mb-3" />
+            <h2 className="text-lg font-semibold text-white mb-1">Audit Failed</h2>
+            <p className="text-xs text-zinc-500">{error}</p>
           </div>
         )}
       </div>

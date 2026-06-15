@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
-import { Loader2, Mail, Lock, User, Eye, EyeOff, Wallet, CheckCircle2 } from 'lucide-react';
+import { Loader2, Mail, Lock, User, Eye, EyeOff, CheckCircle2, ArrowRight } from 'lucide-react';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -17,6 +17,22 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+
+  const passwordStrength = (() => {
+    if (password.length === 0) return { level: 0, label: '' };
+    if (password.length < 6) return { level: 1, label: 'Weak' };
+    if (password.length < 8) return { level: 2, label: 'Fair' };
+    const hasUpper = /[A-Z]/.test(password);
+    const hasNum = /[0-9]/.test(password);
+    const hasSpecial = /[^A-Za-z0-9]/.test(password);
+    const score = [hasUpper, hasNum, hasSpecial].filter(Boolean).length;
+    if (password.length >= 10 && score >= 2) return { level: 4, label: 'Strong' };
+    if (password.length >= 8 && score >= 1) return { level: 3, label: 'Good' };
+    return { level: 2, label: 'Fair' };
+  })();
+
+  const strengthColors = ['', 'bg-red-500', 'bg-amber-500', 'bg-emerald-400', 'bg-emerald-500'];
+  const strengthTextColors = ['', 'text-red-400', 'text-amber-400', 'text-emerald-400', 'text-emerald-500'];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,68 +60,66 @@ export default function RegisterPage() {
 
   if (success) {
     return (
-      <div className="text-center py-8">
-        <div className="w-16 h-16 rounded-full bg-green-500/10 border border-green-500/20 flex items-center justify-center mx-auto mb-6">
-          <CheckCircle2 className="w-8 h-8 text-green-400" />
+      <div className="text-center animate-fadeIn">
+        <div className="w-14 h-14 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-5">
+          <CheckCircle2 className="w-7 h-7 text-emerald-400" />
         </div>
-        <h2 className="text-2xl font-bold text-white mb-2">Check your email</h2>
-        <p className="text-gray-400 text-sm mb-6">
-          We&apos;ve sent a verification link to <span className="text-white font-medium">{email}</span>.
-          Please check your inbox and click the link to verify your account.
+        <h2 className="text-xl font-bold text-white mb-2">Check your email</h2>
+        <p className="text-sm text-zinc-500 mb-6 leading-relaxed">
+          We&apos;ve sent a verification link to{' '}
+          <span className="text-white font-medium">{email}</span>.
+          Click it to activate your account.
         </p>
         <Link
-          href="/login"
-          className="text-indigo-400 hover:text-indigo-300 text-sm font-medium transition-colors"
+          href="/admin/login"
+          className="text-sm text-indigo-400 hover:text-indigo-300 font-medium transition-colors"
         >
-          Go to Login →
+          Continue to login →
         </Link>
       </div>
     );
   }
 
   return (
-    <>
-      <h2 className="text-2xl font-bold text-white mb-1">Create your account</h2>
-      <p className="text-gray-500 text-sm mb-8">Start auditing Sui Move contracts in seconds.</p>
+    <div className="animate-fadeIn">
+      <h1 className="text-xl font-bold text-white mb-1">Create your account</h1>
+      <p className="text-sm text-zinc-500 mb-8">Start auditing Move contracts in seconds.</p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Name */}
         <div>
-          <label className="block text-sm font-medium text-gray-400 mb-1.5">Full Name</label>
+          <label className="block text-xs font-medium text-zinc-400 mb-1.5">Full name</label>
           <div className="relative">
-            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
+            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" />
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="John Doe"
               required
-              className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-indigo-500/50 rounded-xl pl-10 pr-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all text-sm"
+              className="input-base pl-10"
             />
           </div>
         </div>
 
-        {/* Email */}
         <div>
-          <label className="block text-sm font-medium text-gray-400 mb-1.5">Email</label>
+          <label className="block text-xs font-medium text-zinc-400 mb-1.5">Email address</label>
           <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
+            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" />
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
+              placeholder="name@company.com"
               required
-              className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-indigo-500/50 rounded-xl pl-10 pr-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all text-sm"
+              className="input-base pl-10"
             />
           </div>
         </div>
 
-        {/* Password */}
         <div>
-          <label className="block text-sm font-medium text-gray-400 mb-1.5">Password</label>
+          <label className="block text-xs font-medium text-zinc-400 mb-1.5">Password</label>
           <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" />
             <input
               type={showPassword ? 'text' : 'password'}
               value={password}
@@ -113,32 +127,53 @@ export default function RegisterPage() {
               placeholder="Min 8 characters"
               required
               minLength={8}
-              className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-indigo-500/50 rounded-xl pl-10 pr-10 py-3 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all text-sm"
+              className="input-base pl-10 pr-10"
             />
-            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-400">
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-400 transition-colors"
+            >
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
+          {/* Password strength */}
+          {password.length > 0 && (
+            <div className="mt-2 flex items-center gap-2">
+              <div className="flex gap-1 flex-1">
+                {[1, 2, 3, 4].map((i) => (
+                  <div
+                    key={i}
+                    className={`h-1 flex-1 rounded-full transition-colors ${
+                      i <= passwordStrength.level ? strengthColors[passwordStrength.level] : 'bg-zinc-800'
+                    }`}
+                  />
+                ))}
+              </div>
+              <span className={`text-[11px] font-medium ${strengthTextColors[passwordStrength.level]}`}>
+                {passwordStrength.label}
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* Confirm Password */}
         <div>
-          <label className="block text-sm font-medium text-gray-400 mb-1.5">Confirm Password</label>
+          <label className="block text-xs font-medium text-zinc-400 mb-1.5">Confirm password</label>
           <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" />
             <input
               type={showPassword ? 'text' : 'password'}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="Repeat your password"
               required
-              className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-indigo-500/50 rounded-xl pl-10 pr-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all text-sm"
+              className="input-base pl-10"
             />
           </div>
         </div>
 
         {error && (
-          <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">
+          <div className="p-3 bg-red-500/8 border border-red-500/15 rounded-lg text-red-400 text-xs">
             {error}
           </div>
         )}
@@ -146,35 +181,22 @@ export default function RegisterPage() {
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-600/50 text-white font-semibold rounded-xl transition-all shadow-lg shadow-indigo-500/20"
+          className="btn-primary w-full py-2.5"
         >
           {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
           {isLoading ? 'Creating account...' : 'Create Account'}
+          {!isLoading && <ArrowRight className="w-3.5 h-3.5" />}
         </button>
       </form>
 
-      {/* Divider */}
-      <div className="flex items-center gap-3 my-6">
-        <div className="flex-1 h-px bg-[#2a2a2a]" />
-        <span className="text-xs text-gray-600">or continue with</span>
-        <div className="flex-1 h-px bg-[#2a2a2a]" />
-      </div>
 
-      {/* Sui Wallet */}
-      <button
-        onClick={() => router.push('/')}
-        className="w-full flex items-center justify-center gap-2 py-3 bg-[#0f0f0f] border border-[#2a2a2a] hover:border-[#3a3a3a] text-gray-300 hover:text-white font-medium rounded-xl transition-all text-sm"
-      >
-        <Wallet className="w-4 h-4" />
-        Sign in with Sui Wallet
-      </button>
 
-      <p className="text-center text-sm text-gray-600 mt-6">
+      <p className="text-center text-xs text-zinc-600 mt-8">
         Already have an account?{' '}
-        <Link href="/login" className="text-indigo-400 hover:text-indigo-300 font-medium transition-colors">
+        <Link href="/admin/login" className="text-indigo-400 hover:text-indigo-300 font-medium transition-colors">
           Sign in
         </Link>
       </p>
-    </>
+    </div>
   );
 }

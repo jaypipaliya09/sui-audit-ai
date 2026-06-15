@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuditProgress } from '../lib/sse';
-import { CheckCircle2, Circle, Loader2, AlertCircle } from 'lucide-react';
+import { CheckCircle2, Circle, Loader2, AlertCircle, ArrowRight } from 'lucide-react';
 
 interface AuditProgressProps {
   auditId: string;
@@ -13,7 +13,6 @@ export function AuditProgress({ auditId, onComplete }: AuditProgressProps) {
 
   useEffect(() => {
     if (status === 'complete' && blobId && walrusUrl && !completedCallbackFired) {
-      // Set timeout for auto-redirect after 3 seconds
       const timer = setTimeout(() => {
         onComplete(blobId, walrusUrl);
       }, 3000);
@@ -33,7 +32,7 @@ export function AuditProgress({ auditId, onComplete }: AuditProgressProps) {
     { key: 'connecting', label: 'Connecting to audit stream', threshold: 5 },
     { key: 'parsing', label: 'Parsing contract structure', threshold: 10 },
     { key: 'analyzing', label: 'Running AI security analysis', threshold: 20 },
-    { key: 'storing', label: 'Generating report & Uploading to Walrus', threshold: 75 },
+    { key: 'storing', label: 'Generating report & uploading to Walrus', threshold: 75 },
     { key: 'complete', label: 'Complete', threshold: 100 },
   ];
 
@@ -45,75 +44,73 @@ export function AuditProgress({ auditId, onComplete }: AuditProgressProps) {
   };
 
   return (
-    <div className="w-full max-w-2xl mx-auto p-6 rounded-2xl border border-[#21262d] bg-[#161b22] shadow-2xl text-gray-200">
-      <div className="mb-8">
+    <div className="w-full max-w-xl mx-auto p-5 rounded-xl surface shadow-lg">
+      {/* Progress header */}
+      <div className="mb-6">
         <div className="flex justify-between items-center mb-2">
-          <h2 className="text-xl font-semibold text-white">Audit in Progress</h2>
-          <span className="text-sm font-mono text-gray-400">{pct}%</span>
+          <h2 className="text-sm font-medium text-white">Audit in Progress</h2>
+          <span className="text-xs font-mono text-zinc-500">{pct}%</span>
         </div>
-        <div className="w-full bg-[#21262d] rounded-full h-2 overflow-hidden">
+        <div className="w-full bg-zinc-900 rounded-full h-1.5 overflow-hidden">
           <div
-            className={`h-2.5 rounded-full transition-all duration-500 ${
-              status === 'complete' ? 'bg-green-500' : status === 'error' ? 'bg-red-500' : 'bg-blue-500'
+            className={`h-full rounded-full transition-all duration-700 ${
+              status === 'complete' ? 'bg-emerald-500' : status === 'error' ? 'bg-red-500' : 'bg-indigo-500'
             }`}
             style={{ width: `${pct}%` }}
-          ></div>
+          />
         </div>
         {message && status !== 'error' && status !== 'complete' && (
-          <p className="mt-3 text-sm text-blue-400 animate-pulse">{message}</p>
+          <p className="mt-2 text-xs text-indigo-400">{message}</p>
         )}
         {status === 'error' && (
-          <p className="mt-3 text-sm text-red-400 flex items-center gap-2">
-            <AlertCircle size={16} />
+          <p className="mt-2 text-xs text-red-400 flex items-center gap-1.5">
+            <AlertCircle className="w-3.5 h-3.5" />
             {error || 'An unexpected error occurred'}
           </p>
         )}
       </div>
 
-      <div className="space-y-6">
+      {/* Steps */}
+      <div className="space-y-3">
         {steps.map((step, index) => {
           const nextThreshold = steps[index + 1]?.threshold ?? 101;
           const stepStatus = getStepStatus(step.threshold, nextThreshold);
-
-          // Always show submitted as done
           const isDone = stepStatus === 'done' || step.key === 'submitted';
           const isActive = stepStatus === 'active';
-          
-          // Don't show connecting/complete explicitly as spinner steps unless active
+
           if ((step.key === 'connecting' || step.key === 'complete') && !isActive && !isDone) return null;
 
           return (
-            <div key={step.key} className={`flex items-start gap-4 ${!isDone && !isActive ? 'opacity-50' : ''}`}>
-              <div className="mt-1">
+            <div key={step.key} className={`flex items-start gap-3 ${!isDone && !isActive ? 'opacity-40' : ''}`}>
+              <div className="mt-0.5">
                 {isDone ? (
-                  <CheckCircle2 className="text-green-500 w-5 h-5" />
+                  <CheckCircle2 className="text-emerald-500 w-4 h-4" />
                 ) : isActive ? (
-                  <Loader2 className="text-blue-500 w-5 h-5 animate-spin" />
+                  <Loader2 className="text-indigo-400 w-4 h-4 animate-spin" />
                 ) : (
-                  <Circle className="text-gray-600 w-5 h-5" />
+                  <Circle className="text-zinc-700 w-4 h-4" />
                 )}
               </div>
-              <div>
-                <p className={`font-medium ${isDone ? 'text-gray-300' : isActive ? 'text-blue-400' : 'text-gray-500'}`}>
-                  {step.label}
-                </p>
-              </div>
+              <p className={`text-xs font-medium ${isDone ? 'text-zinc-400' : isActive ? 'text-indigo-400' : 'text-zinc-600'}`}>
+                {step.label}
+              </p>
             </div>
           );
         })}
       </div>
 
+      {/* Complete state */}
       {status === 'complete' && (
-        <div className="mt-10 flex items-center justify-between gap-4 pt-6 border-t border-[#21262d]">
-          <div className="flex items-center gap-2 text-green-400 text-sm font-semibold">
-            <CheckCircle2 className="w-5 h-5" />
+        <div className="mt-5 flex items-center justify-between gap-3 pt-4 border-t border-zinc-800">
+          <div className="flex items-center gap-1.5 text-emerald-400 text-xs font-medium">
+            <CheckCircle2 className="w-4 h-4" />
             Audit complete!
           </div>
           <button
             onClick={handleManualComplete}
-            className="px-6 py-2.5 bg-green-600 hover:bg-green-500 text-white rounded-xl font-semibold transition-all shadow-lg shadow-green-900/20 flex items-center gap-2 hover:-translate-y-0.5"
+            className="btn-primary text-xs py-2 px-3"
           >
-            View Report →
+            View Report <ArrowRight className="w-3 h-3" />
           </button>
         </div>
       )}

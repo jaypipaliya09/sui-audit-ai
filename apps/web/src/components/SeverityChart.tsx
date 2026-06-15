@@ -9,8 +9,7 @@ interface SeverityChartProps {
 }
 
 export default function SeverityChart({ findings }: SeverityChartProps) {
-  // Count findings by severity
-  const counts = {
+  const counts: Record<string, number> = {
     CRITICAL: 0,
     HIGH: 0,
     MEDIUM: 0,
@@ -25,27 +24,23 @@ export default function SeverityChart({ findings }: SeverityChartProps) {
   });
 
   const rawData = [
-    { name: 'Critical', value: counts.CRITICAL, color: '#ef4444' }, // red-500
-    { name: 'High', value: counts.HIGH, color: '#f97316' },     // orange-500
-    { name: 'Medium', value: counts.MEDIUM, color: '#eab308' },   // yellow-500
-    { name: 'Low', value: counts.LOW, color: '#3b82f6' },      // blue-500
-    { name: 'Info', value: counts.INFO, color: '#6b7280' },     // gray-500
+    { name: 'Critical', value: counts.CRITICAL, color: '#ef4444' },
+    { name: 'High', value: counts.HIGH, color: '#f97316' },
+    { name: 'Medium', value: counts.MEDIUM, color: '#eab308' },
+    { name: 'Low', value: counts.LOW, color: '#3b82f6' },
+    { name: 'Info', value: counts.INFO, color: '#71717a' },
   ];
 
-  // Only show bars with at least 1 finding
   const data = rawData.filter((item) => item.value > 0);
 
-  if (data.length === 0) {
-    return null;
-  }
+  if (data.length === 0) return null;
 
-  // Custom Tooltip
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
-      const data = payload[0].payload;
+      const d = payload[0].payload;
       return (
-        <div className="bg-[#1e1e1e] border border-gray-700 px-3 py-2 rounded shadow-lg">
-          <p className="text-white text-sm font-medium">{`${data.name}: ${data.value}`}</p>
+        <div className="bg-zinc-900 border border-zinc-800 px-2.5 py-1.5 rounded-md shadow-lg">
+          <p className="text-white text-xs font-medium">{`${d.name}: ${d.value}`}</p>
         </div>
       );
     }
@@ -53,28 +48,28 @@ export default function SeverityChart({ findings }: SeverityChartProps) {
   };
 
   return (
-    <div className="w-full h-[200px] bg-[#121212] border border-gray-800 rounded-xl p-4 shadow-lg mb-8">
-      <h3 className="text-sm font-semibold text-gray-400 mb-4 uppercase tracking-wider">Findings by Severity</h3>
+    <div className="w-full h-[180px] rounded-lg surface p-4">
+      <h3 className="text-[11px] font-medium text-zinc-500 mb-3 uppercase tracking-wider">Findings by Severity</h3>
       <div className="w-full h-[120px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             layout="vertical"
             data={data}
-            margin={{ top: 0, right: 30, left: 10, bottom: 0 }}
+            margin={{ top: 0, right: 30, left: 5, bottom: 0 }}
           >
             <XAxis type="number" hide />
-            <YAxis 
-              type="category" 
-              dataKey="name" 
-              axisLine={false} 
-              tickLine={false} 
-              tick={{ fill: '#9ca3af', fontSize: 12 }} 
-              width={60}
+            <YAxis
+              type="category"
+              dataKey="name"
+              axisLine={false}
+              tickLine={false}
+              tick={{ fill: '#71717a', fontSize: 11 }}
+              width={55}
             />
-            <Tooltip cursor={{ fill: '#1f2937', opacity: 0.4 }} content={<CustomTooltip />} />
-            <Bar dataKey="value" radius={[0, 4, 4, 0]} label={{ position: 'right', fill: '#d1d5db', fontSize: 12 }}>
+            <Tooltip cursor={{ fill: '#18181b', opacity: 0.5 }} content={<CustomTooltip />} />
+            <Bar dataKey="value" radius={[0, 3, 3, 0]} label={{ position: 'right', fill: '#a1a1aa', fontSize: 11 }}>
               {data.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.color} />
+                <Cell key={`cell-${index}`} fill={entry.color} opacity={0.7} />
               ))}
             </Bar>
           </BarChart>

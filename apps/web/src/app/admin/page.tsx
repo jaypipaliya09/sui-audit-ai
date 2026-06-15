@@ -3,13 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
+import { api } from '@/lib/api';
 import { RiskBadge } from '@/components/RiskBadge';
 import {
   Loader2, DollarSign, Users, BarChart3, Activity,
   AlertTriangle, Clock, TrendingUp, Zap, Shield,
-  Database, ArrowRight, Settings, Check
+  Database, Check
 } from 'lucide-react';
-import { api } from '@/lib/api';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -79,7 +79,7 @@ export default function AdminPage() {
   const handlePlanChange = async (userId: string, plan: string) => {
     try {
       await api.updateUserPlan(userId, plan);
-      setAdminUsers((prev) => 
+      setAdminUsers((prev) =>
         prev.map((u) => u.id === userId ? { ...u, subscription: { plan } } : u)
       );
     } catch (err: any) {
@@ -89,206 +89,195 @@ export default function AdminPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
+      <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
+        <Loader2 className="w-6 h-6 text-zinc-600 animate-spin" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+      <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
         <div className="text-center">
-          <AlertTriangle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-white mb-2">Access Denied</h2>
-          <p className="text-gray-500 text-sm">{error}</p>
+          <AlertTriangle className="w-10 h-10 text-red-400/60 mx-auto mb-3" />
+          <h2 className="text-lg font-semibold text-white mb-1">Access Denied</h2>
+          <p className="text-xs text-zinc-500">{error}</p>
         </div>
       </div>
     );
   }
 
-  const METRIC_CARDS = metrics
-    ? [
-        { label: 'MRR', value: `$${metrics.mrr.toLocaleString()}`, icon: DollarSign, color: 'text-green-400', bg: 'bg-green-500/10', border: 'border-green-500/20' },
-        { label: 'Audits Today', value: metrics.auditsToday.toString(), icon: Shield, color: 'text-indigo-400', bg: 'bg-indigo-500/10', border: 'border-indigo-500/20' },
-        { label: 'Audits This Month', value: metrics.auditsThisMonth.toString(), icon: BarChart3, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20' },
-        { label: 'Claude Cost Today', value: `$${metrics.claudeCostToday.toFixed(2)}`, icon: Zap, color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20' },
-        { label: 'Claude Cost Month', value: `$${metrics.claudeCostThisMonth.toFixed(2)}`, icon: DollarSign, color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20' },
-        { label: 'Gross Margin', value: `${metrics.grossMarginPercent}%`, icon: TrendingUp, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
-        { label: 'Queue Depth', value: metrics.queueDepth.toString(), icon: Activity, color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20' },
-        { label: 'Failed Today', value: metrics.failedAuditsToday.toString(), icon: AlertTriangle, color: metrics.failedAuditsToday > 0 ? 'text-red-400' : 'text-gray-500', bg: metrics.failedAuditsToday > 0 ? 'bg-red-500/10' : 'bg-gray-500/10', border: metrics.failedAuditsToday > 0 ? 'border-red-500/20' : 'border-gray-500/20' },
-        { label: 'Walrus Success', value: `${metrics.walrusSuccessRateToday}%`, icon: Database, color: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/20' },
-        { label: 'Avg Latency', value: `${(metrics.avgAuditLatencyMs / 1000).toFixed(1)}s`, icon: Clock, color: 'text-gray-400', bg: 'bg-gray-500/10', border: 'border-gray-500/20' },
-        { label: 'Avg Findings', value: metrics.avgFindingsPerAudit.toString(), icon: Shield, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
-        { label: 'Criticals (Month)', value: metrics.criticalFindingsThisMonth.toString(), icon: AlertTriangle, color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/20' },
-      ]
-    : [];
+  const METRIC_CARDS = metrics ? [
+    { label: 'MRR', value: `$${metrics.mrr.toLocaleString()}`, icon: DollarSign, color: 'text-emerald-400', bg: 'bg-emerald-500/8', border: 'border-emerald-500/15' },
+    { label: 'Audits Today', value: metrics.auditsToday.toString(), icon: Shield, color: 'text-indigo-400', bg: 'bg-indigo-500/8', border: 'border-indigo-500/15' },
+    { label: 'Audits (Month)', value: metrics.auditsThisMonth.toString(), icon: BarChart3, color: 'text-blue-400', bg: 'bg-blue-500/8', border: 'border-blue-500/15' },
+    { label: 'Claude Cost Today', value: `$${metrics.claudeCostToday.toFixed(2)}`, icon: Zap, color: 'text-amber-400', bg: 'bg-amber-500/8', border: 'border-amber-500/15' },
+    { label: 'Claude Cost (Month)', value: `$${metrics.claudeCostThisMonth.toFixed(2)}`, icon: DollarSign, color: 'text-orange-400', bg: 'bg-orange-500/8', border: 'border-orange-500/15' },
+    { label: 'Gross Margin', value: `${metrics.grossMarginPercent}%`, icon: TrendingUp, color: 'text-emerald-400', bg: 'bg-emerald-500/8', border: 'border-emerald-500/15' },
+    { label: 'Queue Depth', value: metrics.queueDepth.toString(), icon: Activity, color: 'text-purple-400', bg: 'bg-purple-500/8', border: 'border-purple-500/15' },
+    { label: 'Failed Today', value: metrics.failedAuditsToday.toString(), icon: AlertTriangle, color: metrics.failedAuditsToday > 0 ? 'text-red-400' : 'text-zinc-500', bg: metrics.failedAuditsToday > 0 ? 'bg-red-500/8' : 'bg-zinc-500/8', border: metrics.failedAuditsToday > 0 ? 'border-red-500/15' : 'border-zinc-500/15' },
+    { label: 'Walrus Success', value: `${metrics.walrusSuccessRateToday}%`, icon: Database, color: 'text-cyan-400', bg: 'bg-cyan-500/8', border: 'border-cyan-500/15' },
+    { label: 'Avg Latency', value: `${(metrics.avgAuditLatencyMs / 1000).toFixed(1)}s`, icon: Clock, color: 'text-zinc-400', bg: 'bg-zinc-500/8', border: 'border-zinc-500/15' },
+    { label: 'Avg Findings', value: metrics.avgFindingsPerAudit.toString(), icon: Shield, color: 'text-amber-400', bg: 'bg-amber-500/8', border: 'border-amber-500/15' },
+    { label: 'Criticals (Month)', value: metrics.criticalFindingsThisMonth.toString(), icon: AlertTriangle, color: 'text-red-400', bg: 'bg-red-500/8', border: 'border-red-500/15' },
+  ] : [];
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] pt-24 pb-16">
-      <div className="max-w-7xl mx-auto px-4 space-y-8">
+    <div className="min-h-screen bg-[#09090b] pt-20 pb-16">
+      <div className="max-w-6xl mx-auto px-4 space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-fadeIn">
           <div>
-            <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-              <Shield className="w-6 h-6 text-indigo-400" />
+            <h1 className="text-lg font-semibold text-white flex items-center gap-2">
+              <Shield className="w-5 h-5 text-indigo-400" />
               Admin Dashboard
             </h1>
-            <p className="text-gray-500 text-sm mt-1">Internal metrics and operations.</p>
+            <p className="text-xs text-zinc-500 mt-0.5">Internal metrics and operations.</p>
           </div>
-          <div className="flex bg-[#1a1a1a] rounded-lg p-1 border border-[#2a2a2a]">
-            <button
-              onClick={() => setActiveTab('overview')}
-              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                activeTab === 'overview' ? 'bg-[#2a2a2a] text-white' : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              Overview
-            </button>
-            <button
-              onClick={() => setActiveTab('users')}
-              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                activeTab === 'users' ? 'bg-[#2a2a2a] text-white' : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              Users
-            </button>
+          <div className="flex bg-zinc-900 rounded-lg p-0.5 border border-zinc-800">
+            {(['overview', 'users'] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-3.5 py-1.5 rounded-md text-xs font-medium transition-colors capitalize ${
+                  activeTab === tab ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
           </div>
         </div>
 
         {activeTab === 'overview' && (
-          <>
-            {/* Metrics Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-          {METRIC_CARDS.map((card) => (
-            <div
-              key={card.label}
-              className={`${card.bg} border ${card.border} rounded-2xl p-4 transition-all hover:scale-[1.02]`}
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <card.icon className={`w-4 h-4 ${card.color}`} />
-                <span className="text-xs text-gray-500 font-medium">{card.label}</span>
-              </div>
-              <div className="text-xl font-bold text-white">{card.value}</div>
+          <div className="space-y-6 animate-fadeIn">
+            {/* Metrics grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {METRIC_CARDS.map((card) => (
+                <div
+                  key={card.label}
+                  className={`${card.bg} border ${card.border} rounded-lg p-4 transition-all hover:scale-[1.01]`}
+                >
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <card.icon className={`w-3.5 h-3.5 ${card.color}`} />
+                    <span className="text-[11px] text-zinc-500 font-medium">{card.label}</span>
+                  </div>
+                  <div className="text-xl font-bold text-white">{card.value}</div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
 
-        {/* Recent Audits Table */}
-        <div>
-          <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
-            <Clock className="w-4 h-4 text-gray-500" />
-            Recent Audits
-          </h3>
-          {audits.length > 0 ? (
-            <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl overflow-hidden">
+            {/* Recent audits table */}
+            <div>
+              <h3 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
+                <Clock className="w-3.5 h-3.5 text-zinc-500" />
+                Recent Audits
+              </h3>
+              {audits.length > 0 ? (
+                <div className="rounded-lg surface overflow-hidden">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-zinc-800/50">
+                        <th className="text-left px-4 py-2.5 text-[11px] font-medium text-zinc-600 uppercase tracking-wider">Contract</th>
+                        <th className="text-left px-4 py-2.5 text-[11px] font-medium text-zinc-600 uppercase tracking-wider">User</th>
+                        <th className="text-left px-4 py-2.5 text-[11px] font-medium text-zinc-600 uppercase tracking-wider">Risk</th>
+                        <th className="text-left px-4 py-2.5 text-[11px] font-medium text-zinc-600 uppercase tracking-wider">Status</th>
+                        <th className="text-right px-4 py-2.5 text-[11px] font-medium text-zinc-600 uppercase tracking-wider">Cost</th>
+                        <th className="text-right px-4 py-2.5 text-[11px] font-medium text-zinc-600 uppercase tracking-wider">Latency</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {audits.map((audit: any) => (
+                        <tr key={audit.id} className="border-b border-zinc-800/30 last:border-0 hover:bg-white/[0.015] transition-colors">
+                          <td className="px-4 py-3 text-sm text-white font-medium truncate max-w-[180px]">
+                            {audit.contractName || 'Untitled'}
+                          </td>
+                          <td className="px-4 py-3 text-xs text-zinc-500">
+                            {audit.user?.email || audit.userId?.slice(0, 8) || '—'}
+                          </td>
+                          <td className="px-4 py-3">
+                            <RiskBadge level={audit.overallRisk || audit.status || 'INFO'} />
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`text-xs font-medium ${
+                              audit.status === 'COMPLETE' ? 'text-emerald-400' :
+                              audit.status === 'FAILED' ? 'text-red-400' :
+                              'text-amber-400'
+                            }`}>
+                              {audit.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-xs text-zinc-500 text-right font-mono">
+                            ${(audit.claudeCost || 0).toFixed(4)}
+                          </td>
+                          <td className="px-4 py-3 text-xs text-zinc-500 text-right font-mono">
+                            {audit.claudeLatencyMs ? `${(audit.claudeLatencyMs / 1000).toFixed(1)}s` : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-12 rounded-lg surface">
+                  <Shield className="w-8 h-8 text-zinc-800 mx-auto mb-3" />
+                  <p className="text-sm text-zinc-600">No audits recorded yet.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'users' && (
+          <div className="rounded-lg surface overflow-hidden animate-fadeIn">
+            {usersLoading ? (
+              <div className="py-16 flex justify-center"><Loader2 className="w-5 h-5 animate-spin text-zinc-600" /></div>
+            ) : adminUsers.length > 0 ? (
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-[#2a2a2a]">
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Contract</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">User</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Risk</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Status</th>
-                    <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase">Cost</th>
-                    <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase">Latency</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Date</th>
+                  <tr className="border-b border-zinc-800/50">
+                    <th className="text-left px-4 py-2.5 text-[11px] font-medium text-zinc-600 uppercase tracking-wider">User</th>
+                    <th className="text-left px-4 py-2.5 text-[11px] font-medium text-zinc-600 uppercase tracking-wider">Role</th>
+                    <th className="text-left px-4 py-2.5 text-[11px] font-medium text-zinc-600 uppercase tracking-wider">Joined</th>
+                    <th className="text-right px-4 py-2.5 text-[11px] font-medium text-zinc-600 uppercase tracking-wider">Audits</th>
+                    <th className="text-right px-4 py-2.5 text-[11px] font-medium text-zinc-600 uppercase tracking-wider">Plan</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {audits.map((audit: any) => (
-                    <tr key={audit.id} className="border-b border-[#2a2a2a] last:border-0 hover:bg-white/[0.02] transition-colors">
-                      <td className="px-4 py-3 text-sm text-white font-medium truncate max-w-[200px]">
-                        {audit.contractName || 'Untitled'}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-500">
-                        {audit.user?.email || audit.userId?.slice(0, 8) || '—'}
-                      </td>
+                  {adminUsers.map((u: any) => (
+                    <tr key={u.id} className="border-b border-zinc-800/30 last:border-0 hover:bg-white/[0.015]">
                       <td className="px-4 py-3">
-                        <RiskBadge level={audit.overallRisk || audit.status || 'INFO'} />
+                        <div className="text-sm text-white font-medium">{u.name}</div>
+                        <div className="text-[11px] text-zinc-600">{u.email}</div>
                       </td>
-                      <td className="px-4 py-3">
-                        <span className={`text-xs font-medium ${
-                          audit.status === 'COMPLETE' ? 'text-green-400' :
-                          audit.status === 'FAILED' ? 'text-red-400' :
-                          'text-yellow-400'
-                        }`}>
-                          {audit.status}
-                        </span>
+                      <td className="px-4 py-3 text-xs text-zinc-500">{u.role}</td>
+                      <td className="px-4 py-3 text-xs text-zinc-600">
+                        {new Date(u.createdAt).toLocaleDateString()}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-500 text-right font-mono">
-                        ${(audit.claudeCost || 0).toFixed(4)}
+                      <td className="px-4 py-3 text-xs text-zinc-500 text-right">
+                        {u._count?.audits || 0}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-500 text-right font-mono">
-                        {audit.claudeLatencyMs ? `${(audit.claudeLatencyMs / 1000).toFixed(1)}s` : '—'}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-500">
-                        {new Date(audit.createdAt).toLocaleDateString()}
+                      <td className="px-4 py-3 text-right">
+                        <select
+                          value={u.subscription?.plan || 'FREE'}
+                          onChange={(e) => handlePlanChange(u.id, e.target.value)}
+                          className="bg-zinc-900 border border-zinc-800 text-white text-xs rounded-md px-2 py-1.5 focus:border-indigo-500 focus:outline-none"
+                        >
+                          <option value="FREE">FREE</option>
+                          <option value="DEVELOPER">DEVELOPER</option>
+                          <option value="TEAM">TEAM</option>
+                          <option value="ENTERPRISE">ENTERPRISE</option>
+                        </select>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
-          ) : (
-            <div className="text-center py-12 bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl">
-              <Shield className="w-10 h-10 text-gray-700 mx-auto mb-3" />
-              <p className="text-gray-600 text-sm">No audits recorded yet.</p>
-            </div>
-          )}
-        </div>
-        </>
-      )}
-
-      {activeTab === 'users' && (
-        <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl overflow-hidden">
-          {usersLoading ? (
-             <div className="py-12 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-indigo-400" /></div>
-          ) : adminUsers.length > 0 ? (
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-[#2a2a2a]">
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">User</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Role</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Joined</th>
-                  <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase">Audits</th>
-                  <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase">Plan</th>
-                </tr>
-              </thead>
-              <tbody>
-                {adminUsers.map((u: any) => (
-                  <tr key={u.id} className="border-b border-[#2a2a2a] last:border-0 hover:bg-white/[0.02]">
-                    <td className="px-4 py-3 text-sm text-white">
-                      <div>{u.name}</div>
-                      <div className="text-xs text-gray-500">{u.email}</div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-400">{u.role}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {new Date(u.createdAt).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-400 text-right">
-                      {u._count?.audits || 0}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <select
-                        value={u.subscription?.plan || 'FREE'}
-                        onChange={(e) => handlePlanChange(u.id, e.target.value)}
-                        className="bg-[#0f0f0f] border border-[#2a2a2a] text-white text-xs rounded-lg px-2 py-1.5 focus:border-indigo-500 focus:outline-none"
-                      >
-                        <option value="FREE">FREE</option>
-                        <option value="DEVELOPER">DEVELOPER</option>
-                        <option value="TEAM">TEAM</option>
-                        <option value="ENTERPRISE">ENTERPRISE</option>
-                      </select>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-             <div className="text-center py-12 text-gray-500 text-sm">No users found.</div>
-          )}
-        </div>
-      )}
+            ) : (
+              <div className="text-center py-12 text-zinc-600 text-sm">No users found.</div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
