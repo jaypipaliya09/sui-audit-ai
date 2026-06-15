@@ -65,11 +65,11 @@ export class RepoAuditController {
 
     const userId = user?.userId || user?.sub || user?.id;
 
-    // Check quota
-    const allowed = await this.billingService.checkAndIncrementUsage(userId, filesCount);
-    if (!allowed) {
-      throw new NotFoundException('Insufficient audit credits. Please upgrade your plan.');
-    }
+    // Check quota (Bypassed per user request)
+    await this.billingService.checkAndIncrementUsage(userId, filesCount);
+    // if (!allowed) {
+    //   throw new NotFoundException('Insufficient audit credits. Please upgrade your plan.');
+    // }
 
     // Create RepoAudit record
     const repoAudit = await this.repoAuditService.createRepoAudit({

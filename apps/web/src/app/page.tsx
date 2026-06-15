@@ -162,11 +162,10 @@ function RepoAuditInline() {
               <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
                 {TRACKS.map((track) => (
                   <button key={track.id} onClick={() => setProjectTrack(track.id)}
-                    className={`p-2 rounded-md border text-[11px] transition-colors ${
-                      projectTrack === track.id
-                        ? 'bg-indigo-500/8 border-indigo-500/20 text-indigo-300'
-                        : 'border-zinc-800 text-zinc-500 hover:border-zinc-700'
-                    }`}
+                    className={`p-2 rounded-md border text-[11px] transition-colors ${projectTrack === track.id
+                      ? 'bg-indigo-500/8 border-indigo-500/20 text-indigo-300'
+                      : 'border-zinc-800 text-zinc-500 hover:border-zinc-700'
+                      }`}
                   >{track.name}</button>
                 ))}
               </div>
@@ -228,7 +227,7 @@ export default function Home() {
 
     try {
       const tx = new Transaction();
-      const TREASURY_ADDRESS = process.env.NEXT_PUBLIC_DEMO_WALLET_ADDRESS || '0x69fb32ef40f1954a2279041bb2d90c4e7d289dd10486409ae81e7ef39467d8b0';
+      const TREASURY_ADDRESS = process.env.NEXT_PUBLIC_DEMO_WALLET_ADDRESS || '0x7c23479f9746a400ae9fddd93158f97e864dde6837942d863d52c9893e7765a8';
 
       tx.setSender(address);
       const [coin] = tx.splitCoins(tx.gas, [tx.pure.u64(1_000_000_000)]);
@@ -274,10 +273,13 @@ export default function Home() {
         throw new Error('Wallet connected but no active account found. Please try reconnecting.');
       }
 
-      if (txResult.effects?.status?.status !== 'success') {
+      if (txResult.effects && txResult.effects.status?.status === 'failure') {
         throw new Error('Transaction failed on the Sui network. Please try again.');
       }
-      txDigest = txResult.digest;
+      txDigest = txResult.digest || txResult.transactionEffects?.transactionDigest;
+      if (!txDigest) {
+        throw new Error('Transaction execution succeeded but no transaction digest was returned by the wallet.');
+      }
 
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
       const res = await fetch(`${API_URL}/audit/submit`, {

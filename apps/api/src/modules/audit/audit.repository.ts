@@ -161,6 +161,18 @@ export class AuditRepository {
     });
   }
 
+  async resetAuditStatus(auditId: string, contractName: string, contractCode: string) {
+    return this.prisma.audit.update({
+      where: { id: auditId },
+      data: {
+        status: AuditStatus.QUEUED,
+        errorMessage: null,
+        contractName,
+        contractCode,
+      },
+    });
+  }
+
   async updateOnChain(auditId: string, txDigest: string) {
     return this.prisma.audit.update({
       where: { id: auditId },

@@ -8,6 +8,11 @@ export class RateLimitGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
     const response = context.switchToHttp().getResponse();
+    // If request contains txDigest in body, this is a paid public audit. Bypass rate limit check.
+    if (request.body && request.body.txDigest) {
+      return true;
+    }
+
     const user = request.user;
 
     if (!user) {

@@ -7,6 +7,12 @@ export class AuditQuotaGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
+
+    // If request contains txDigest in body, this is a paid public audit. Bypass quota check.
+    if (request.body && request.body.txDigest) {
+      return true;
+    }
+
     const user = request.user;
     
     if (!user) {

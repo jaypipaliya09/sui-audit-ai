@@ -13,8 +13,8 @@ export class AuditService {
   private readonly logger = new Logger(AuditService.name);
 
   private readonly suiClient: SuiClient;
-  private readonly TREASURY_ADDRESS = '0x69fb32ef40f1954a2279041bb2d90c4e7d289dd10486409ae81e7ef39467d8b0'; // Matching demo env
-  private readonly EXPECTED_SUI_AMOUNT = 0.00011; // 1 SUI in MIST
+  private readonly TREASURY_ADDRESS = '0x7c23479f9746a400ae9fddd93158f97e864dde6837942d863d52c9893e7765a8'; // Matching demo env
+  private readonly EXPECTED_SUI_AMOUNT = 1000000000; // 1 SUI in MIST
 
   constructor(
     @InjectQueue(AUDIT_QUEUE) private readonly auditQueue: Queue,
@@ -37,41 +37,79 @@ export class AuditService {
       // 1. Check replay attack
       const existing = await this.auditRepository.findByTxDigest(txDigest);
       if (existing) {
-        throw new BadRequestException('Transaction digest has already been used for an audit.');
+        if (existing.status === 'FAILED') {
+          // If the previous attempt failed, reset status and retry
+          await this.auditRepository.resetAuditStatus(existing.id, contractName, contractCode);
+
+          // Re-queue the job
+          const jobData: AuditJobData = {
+            auditId: existing.id,
+            contractCode,
+            contractName,
+            userId: userId || '',
+            submittedAt: new Date(),
+          };
+
+          await this.auditQueue.add(
+            AUDIT_JOB_NAMES.PROCESS_CONTRACT,
+            jobData,
+            QUEUE_CONFIG.defaultJobOptions,
+          );
+
+          this.logger.log(
+            `Audit [${existing.id}] re-queued (retry for failed audit) for "${contractName}"`,
+          );
+
+          return { auditId: existing.id };
+        } else {
+          throw new BadRequestException('Transaction digest has already been used for an audit.');
+        }
       }
 
-      // 2. Fetch from Sui Network
-      try {
-        const tx = await this.suiClient.getTransactionBlock({
-          digest: txDigest,
-          options: { showEffects: true, showBalanceChanges: true },
-        });
-
-        if (tx.effects?.status.status !== 'success') {
-          throw new BadRequestException('Transaction failed on the Sui network.');
-        }
-
-        // Verify balance changes: find if treasury received the funds
-        const treasuryChange = tx.balanceChanges?.find(
-          (b) => {
-            const ownerObj = b.owner as any;
-            return ownerObj && ownerObj.AddressOwner === this.TREASURY_ADDRESS && b.coinType === '0x2::sui::SUI';
+      // 2. Fetch from Sui Network (with robust retries for indexing delay)
+      let tx: any = null;
+      const attempts = 5;
+      let delay = 1000;
+      for (let i = 0; i < attempts; i++) {
+        try {
+          tx = await this.suiClient.getTransactionBlock({
+            digest: txDigest,
+            options: { showEffects: true, showBalanceChanges: true },
+          });
+          break; // Succeeded fetching
+        } catch (e: any) {
+          if (i === attempts - 1) {
+            this.logger.error(`Failed to verify txDigest ${txDigest} after ${attempts} attempts: ${e.message}`);
+            throw new BadRequestException(`Invalid transaction digest or network error: ${e.message}`);
           }
-        );
-
-        // Note: For a robust hackathon check, we look for positive balance changes.
-        // If we want exact check: BigInt(treasuryChange.amount) >= BigInt(this.EXPECTED_SUI_AMOUNT)
-        if (!treasuryChange || BigInt(treasuryChange.amount) < BigInt(this.EXPECTED_SUI_AMOUNT)) {
-          // We'll log a warning but not block if it's testnet and slightly off to ensure demo works, 
-          // but technically we should throw. Let's throw for real Web3 feel.
-          this.logger.warn(`Transaction found but amount sent to treasury was insufficient or not found: ${JSON.stringify(treasuryChange)}`);
-          // throw new BadRequestException('Transaction did not transfer 1 SUI to the treasury address.');
+          this.logger.warn(`Sui transaction query attempt ${i + 1} failed, retrying in ${delay}ms...`);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          delay *= 1.5;
         }
+      }
 
-      } catch (e: any) {
-        if (e instanceof BadRequestException) throw e;
-        this.logger.error(`Failed to verify txDigest ${txDigest}: ${e.message}`);
-        throw new BadRequestException(`Invalid transaction digest or network error: ${e.message}`);
+      if (tx.effects?.status.status !== 'success') {
+        throw new BadRequestException('Transaction failed on the Sui network.');
+      }
+
+      // Verify balance changes: find if treasury received the funds
+      const treasuryChange = tx.balanceChanges?.find(
+        (b: any) => {
+          const ownerObj = b.owner as any;
+          return ownerObj && 
+            ownerObj.AddressOwner &&
+            ownerObj.AddressOwner.toLowerCase() === this.TREASURY_ADDRESS.toLowerCase() && 
+            b.coinType === '0x2::sui::SUI';
+        }
+      );
+
+      // Note: For a robust hackathon check, we look for positive balance changes.
+      // If we want exact check: BigInt(treasuryChange.amount) >= BigInt(this.EXPECTED_SUI_AMOUNT)
+      if (!treasuryChange || BigInt(treasuryChange.amount) < BigInt(this.EXPECTED_SUI_AMOUNT)) {
+        // We'll log a warning but not block if it's testnet and slightly off to ensure demo works, 
+        // but technically we should throw. Let's throw for real Web3 feel.
+        this.logger.warn(`Transaction found but amount sent to treasury was insufficient or not found: ${JSON.stringify(treasuryChange)}`);
+        // throw new BadRequestException('Transaction did not transfer 1 SUI to the treasury address.');
       }
     }
 

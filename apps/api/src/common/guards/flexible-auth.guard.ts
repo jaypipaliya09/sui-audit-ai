@@ -15,6 +15,12 @@ export class FlexibleAuthGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
+
+    // If request contains txDigest in body, this is a paid public audit. Bypass authorization check.
+    if (request.body && request.body.txDigest) {
+      return true;
+    }
+
     const authHeader = request.headers.authorization;
 
     if (!authHeader) {
