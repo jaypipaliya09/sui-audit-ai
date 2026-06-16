@@ -11,10 +11,25 @@ declare global {
 }
 
 import { getWallets } from '@wallet-standard/app';
+import { registerSlushWallet } from '@mysten/slush-wallet';
+
+// Register Slush as a wallet-standard wallet so it is detected even without the
+// browser extension (Slush also provides a hosted web wallet). Runs once.
+let slushRegistered = false;
+function ensureSlushRegistered() {
+  if (slushRegistered || typeof window === 'undefined') return;
+  slushRegistered = true;
+  try {
+    registerSlushWallet('Sui Audit AI', { origin: window.location.origin });
+  } catch {
+    /* already registered / unsupported */
+  }
+}
 
 /** Returns the Slush / Sui Wallet browser extension provider, or null */
 function getSuiExtensionProvider(): any | null {
   if (typeof window === 'undefined') return null;
+  ensureSlushRegistered();
 
   // Legacy globals
   if ((window as any).suiWallet) return (window as any).suiWallet;
@@ -42,6 +57,7 @@ export interface SavedAudit {
   contractName: string;
   createdAt: string;
   overallRisk?: string;
+  kind?: 'direct' | 'repo';
 }
 
 interface WalletContextType {

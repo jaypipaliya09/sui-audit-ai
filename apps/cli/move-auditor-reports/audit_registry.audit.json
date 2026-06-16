@@ -1,0 +1,41 @@
+{
+  "contractName": "registry",
+  "overallRisk": "HIGH",
+  "findings": [
+    {
+      "severity": "HIGH",
+      "title": "Missing access control on anchor_audit",
+      "description": "anchor_audit is a public entry function that anyone can call. There is no AdminCap, capability check, or allowlist gating who may write records. Any account can anchor arbitrary audit records, setting overall_risk to any value and recording themselves as the auditor_address. Because verify_audit only checks for key presence, an attacker can mark malicious/unaudited contracts as 'audited' (e.g. overall_risk = 0/Clean), undermining the entire trust model of the registry. The auditor_address field is purely self-reported and gives no real provenance.",
+      "location": "anchor_audit",
+      "recommendation": "Introduce an AuditorCap (capability) object minted in init and transferred to a trusted authority, and require it as a parameter to anchor_audit. Alternatively maintain an on-chain allowlist of authorized auditor addresses checked via assert! against tx_context::sender. Validate that only legitimately-derived signatures/capabilities can write records."
+    },
+    {
+      "severity": "HIGH",
+      "title": "Hash squatting / permanent denial via duplicate key abort",
+      "description": "table::add aborts if the key already exists. Since contract_hash is used as the table key and anyone can call anchor_audit, an attacker can front-run or pre-emptively insert a record for any contract_hash. Once a hash is occupied, the legitimate auditor can never anchor the real audit for that hash because every subsequent table::add with the same key will abort. This is a griefing/denial-of-service vector and lets an attacker permanently pin a false record (e.g. wrong risk level or attacker-controlled blob id) for a target contract.",
+      "location": "anchor_audit (table::add)",
+      "recommendation": "Check table::contains before adding and decide on explicit semantics: either reject duplicates with a clear error, or gate updates behind a capability and use table::remove + table::add (or a borrow_mut update path) so an authorized auditor can overwrite. Combined with access control, this prevents unauthorized squatting."
+    },
+    {
+      "severity": "MEDIUM",
+      "title": "overall_risk value is not validated",
+      "description": "overall_risk is a u8 documented to only use values 0-4 (Clean..Critical), but no validation enforces this range. A caller can store arbitrary values (e.g. 200), producing records that downstream consumers and the AuditAnchored event may misinterpret, breaking risk-level assumptions and any UI/indexer logic that maps the value to a label.",
+      "location": "anchor_audit",
+      "recommendation": "Add assert!(overall_risk <= 4, E_INVALID_RISK); before storing, or model risk as an enum/typed wrapper to constrain the domain of valid values."
+    },
+    {
+      "severity": "LOW",
+      "title": "No ability to update or remove records / unbounded growth",
+      "description": "The contract only supports inserts. Records can never be corrected, revoked, or deleted once written, so an erroneous or malicious record is permanent. The records table also grows without bound and the registry has no mechanism to prune, archive, or migrate, which can increase long-term storage costs and operational rigidity.",
+      "location": "AuditRegistry / module-wide",
+      "recommendation": "Add capability-gated update and revoke functions (e.g. mark a record as superseded or remove it), and consider versioning records by (contract_hash, timestamp) if historical audits should be retained rather than overwritten."
+    },
+    {
+      "severity": "INFO",
+      "title": "Inputs walrus_blob_id and contract_hash are unvalidated and unbounded",
+      "description": "contract_hash and walrus_blob_id are raw vector<u8> with no length or format validation. A caller can pass empty or oversized vectors. An empty contract_hash key is still a valid (and squattable) table entry, and overly large blobs increase storage cost. This is informational given the access-control fixes above, but worth hardening.",
+      "location": "anchor_audit",
+      "recommendation": "Assert expected lengths (e.g. fixed 32-byte hash) and reject empty vectors. Enforce a reasonable maximum length for walrus_blob_id."
+    }
+  ]
+}

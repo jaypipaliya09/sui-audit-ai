@@ -24,6 +24,7 @@ import { EmailModule } from './modules/email/email.module.js';
 import { LoggerModule } from './common/logger/logger.module.js';
 import { MetricsModule } from './modules/metrics/metrics.module.js';
 import { AdminModule } from './modules/admin/admin.module.js';
+import { AuditRunsModule } from './modules/audit-runs/audit-runs.module.js';
 
 @Module({
   imports: [
@@ -85,6 +86,7 @@ import { AdminModule } from './modules/admin/admin.module.js';
     LoggerModule,
     MetricsModule,
     AdminModule,
+    AuditRunsModule,
   ],
   controllers: [AppController, HealthController],
   providers: [

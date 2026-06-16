@@ -5,10 +5,34 @@ import { useParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { RiskBadge } from '@/components/RiskBadge';
 import { WalrusLink } from '@/components/WalrusLink';
+import { FindingCard } from '@/components/FindingCard';
 import {
   Loader2, GitBranch, FileCode2, AlertTriangle,
   ChevronDown, ChevronRight, ExternalLink, Shield, Lightbulb, Copy
 } from 'lucide-react';
+
+/** Normalize an audit finding so it renders with the shared FindingCard, matching
+ * the look of the direct-UI and CLI reports. */
+function normalizeFinding(f: any, i: number) {
+  return {
+    id: f.id || `FIND-${String(i + 1).padStart(3, '0')}`,
+    title: f.title || 'Finding',
+    severity: f.severity || 'INFO',
+    category: f.category || 'OTHER',
+    location:
+      f.location && typeof f.location === 'object'
+        ? {
+            module: f.location.module || '',
+            function: f.location.function ?? null,
+            lineHint: f.location.lineHint || '',
+          }
+        : { module: '', function: null, lineHint: typeof f.location === 'string' ? f.location : '' },
+    description: f.description || '',
+    impact: f.impact || '',
+    recommendation: f.recommendation || '',
+    codeSnippet: f.codeSnippet ?? null,
+  };
+}
 
 export default function RepoReportPage() {
   const params = useParams();
@@ -164,19 +188,7 @@ export default function RepoReportPage() {
                         </div>
                       )}
                       {cFindings.length > 0 ? cFindings.map((finding: any, j: number) => (
-                        <div key={j} className="p-3 bg-zinc-900/50 rounded-lg">
-                          <div className="flex items-center gap-2 mb-1.5">
-                            <RiskBadge level={finding.severity || 'INFO'} />
-                            <span className="text-xs text-white font-medium">{finding.title}</span>
-                          </div>
-                          <p className="text-[11px] text-zinc-500 leading-relaxed">{finding.description}</p>
-                          {finding.recommendation && (
-                            <div className="flex items-start gap-1.5 mt-2 text-[11px] text-indigo-400">
-                              <Lightbulb className="w-3 h-3 shrink-0 mt-0.5" />
-                              {finding.recommendation}
-                            </div>
-                          )}
-                        </div>
+                        <FindingCard key={j} finding={normalizeFinding(finding, j) as any} />
                       )) : (
                         <div className="text-xs text-zinc-500 italic p-2 text-center">No vulnerabilities found in this contract.</div>
                       )}

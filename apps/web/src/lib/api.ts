@@ -188,11 +188,18 @@ class ApiClient {
     });
   }
 
-  // ── Billing ──
-  async createCheckout(priceId: string) {
-    return this.request<{ url: string }>('/billing/checkout', {
+  // ── Billing (Slush / USDC) ──
+  async getPlans() {
+    return this.request<Record<string, { priceUsdc: number; auditsLimit: number }>>(
+      '/billing/plans',
+    );
+  }
+
+  /** Activate a plan after paying USDC from Slush; verified on-chain by txDigest. */
+  async purchasePlan(plan: string, txDigest: string) {
+    return this.request<any>('/billing/purchase', {
       method: 'POST',
-      body: JSON.stringify({ priceId }),
+      body: JSON.stringify({ plan, txDigest }),
     });
   }
 
@@ -200,8 +207,13 @@ class ApiClient {
     return this.request<any>('/billing/status');
   }
 
-  async createPortalSession() {
-    return this.request<{ url: string }>('/billing/portal');
+  // ── Audit runs (move-auditor CLI, per Slush wallet) ──
+  async getAuditRuns(wallet: string) {
+    return this.request<any[]>(`/audit-runs?wallet=${encodeURIComponent(wallet)}`);
+  }
+
+  async getAuditRun(id: string) {
+    return this.request<any>(`/audit-runs/${id}`);
   }
 
   // ── API Keys ──

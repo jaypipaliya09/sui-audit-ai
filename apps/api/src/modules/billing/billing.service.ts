@@ -1,206 +1,143 @@
-import { Injectable, BadRequestException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { SuiClient } from '@mysten/sui.js/client';
 import { BillingRepository } from './billing.repository.js';
 import { UsersService } from '../users/users.service.js';
-import { ConfigService } from '@nestjs/config';
-import Stripe from 'stripe';
-import { EmailService } from '../email/email.service.js';
+
+const FULLNODE_URLS: Record<string, string> = {
+  mainnet: 'https://fullnode.mainnet.sui.io',
+  testnet: 'https://fullnode.testnet.sui.io',
+  devnet: 'https://fullnode.devnet.sui.io',
+};
+
+/** Purchasable plans, priced in USDC. PAY_AS_YOU_GO is handled per-audit (escrow). */
+export const PLANS: Record<string, { priceUsdc: number; auditsLimit: number }> = {
+  DEVELOPER: { priceUsdc: 10, auditsLimit: 25 },
+  TEAM: { priceUsdc: 30, auditsLimit: 100 },
+  ENTERPRISE: { priceUsdc: 100, auditsLimit: 1000 },
+};
 
 @Injectable()
 export class BillingService {
-  private readonly stripe: any;
   private readonly logger = new Logger(BillingService.name);
+  private readonly sui: SuiClient;
+  private readonly treasury: string;
+  private readonly usdcType: string;
+  private readonly usdcDecimals: number;
 
   constructor(
     private readonly billingRepository: BillingRepository,
     private readonly usersService: UsersService,
     private readonly configService: ConfigService,
-    private readonly emailService: EmailService,
   ) {
-    this.stripe = new Stripe(this.configService.get<string>('STRIPE_SECRET_KEY') || 'sk_test_123', {
-      apiVersion: '2025-02-24.acacia' as any,
-    });
+    const network = this.configService.get<string>('SUI_NETWORK') || 'testnet';
+    this.sui = new SuiClient({ url: FULLNODE_URLS[network] || FULLNODE_URLS.testnet });
+    this.treasury = (this.configService.get<string>('TREASURY_ADDRESS') || '').toLowerCase();
+    this.usdcType =
+      this.configService.get<string>('USDC_COIN_TYPE') ||
+      '0xa1ec7fc00a6f40db9693ad1415d0c193ad3906494428cf252621037bd7117e29::usdc::USDC';
+    this.usdcDecimals = Number(this.configService.get<string>('USDC_DECIMALS') || 6);
   }
 
-  async createCheckoutSession(userId: string, priceId: string): Promise<{ checkoutUrl: string }> {
-    let subscription = await this.billingRepository.findByUserId(userId);
-    const user = await this.usersService.findById(userId);
-    if (!user) throw new BadRequestException('User not found');
-
-    let customerId = subscription?.stripeCustomerId;
-    
-    if (!customerId) {
-      const customer = await this.stripe.customers.create({
-        email: user.email,
-        metadata: { userId },
-      });
-      customerId = customer.id;
-      subscription = await this.billingRepository.upsert(userId, customerId as string);
-    }
-
-    // Determine mode based on priceId, simplistic assumption here
-    const mode = priceId.includes('payg') ? 'payment' : 'subscription';
-
-    const session = await this.stripe.checkout.sessions.create({
-      customer: customerId,
-      mode: mode,
-      payment_method_types: ['card'],
-      line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${this.configService.get('FRONTEND_URL')}/my-audits?success=true`,
-      cancel_url: `${this.configService.get('FRONTEND_URL')}/pricing?canceled=true`,
-    });
-
-    return { checkoutUrl: session.url as string };
-  }
-
-  async createPortalSession(userId: string): Promise<{ portalUrl: string }> {
-    const subscription = await this.billingRepository.findByUserId(userId);
-    if (!subscription || !subscription.stripeCustomerId) {
-      throw new BadRequestException('No billing account found');
-    }
-
-    const session = await this.stripe.billingPortal.sessions.create({
-      customer: subscription.stripeCustomerId,
-      return_url: `${this.configService.get('FRONTEND_URL')}/my-audits`,
-    });
-
-    return { portalUrl: session.url };
+  getPlans() {
+    return PLANS;
   }
 
   async getStatus(userId: string) {
-    let sub = await this.billingRepository.findByUserId(userId);
+    const sub = await this.billingRepository.findByUserId(userId);
     if (!sub) {
-       // If no sub exists, user is practically FREE but needs a stripe ID generated upon checkout
-       return { plan: 'FREE', auditsUsedThisPeriod: 0, auditsLimit: 3, status: 'INCOMPLETE' };
+      return { plan: 'FREE', auditsUsedThisPeriod: 0, auditsLimit: 3, status: 'ACTIVE' };
     }
     return sub;
   }
 
-  async handleWebhook(rawBody: Buffer, signature: string) {
-    let event: any;
-    const webhookSecret = this.configService.get<string>('STRIPE_WEBHOOK_SECRET') || 'whsec_test';
+  /**
+   * Activate a plan after the user paid in USDC from their Slush wallet.
+   * Verifies the on-chain transfer to the treasury before granting the plan.
+   */
+  async purchasePlan(userId: string, plan: string, txDigest: string) {
+    const planDef = PLANS[plan];
+    if (!planDef) throw new BadRequestException(`Unknown plan: ${plan}`);
+    if (!txDigest) throw new BadRequestException('Missing payment txDigest');
 
-    try {
-      event = this.stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
-    } catch (err: any) {
-      this.logger.error(`Webhook signature verification failed: ${err.message}`);
-      throw new BadRequestException('Webhook Error');
+    const user = await this.usersService.findById(userId);
+    if (!user) throw new BadRequestException('User not found');
+
+    if (await this.billingRepository.isTxUsed(txDigest)) {
+      throw new BadRequestException('This payment has already been redeemed');
     }
 
-    this.logger.log(`Received Stripe Webhook: ${event.type}`);
+    await this.verifyUsdcPayment(txDigest, planDef.priceUsdc);
 
-    switch (event.type) {
-      case 'checkout.session.completed': {
-        const session = event.data.object as any;
-        if (session.customer) {
-          await this.billingRepository.activateSubscription(session.customer as string, {
-            status: 'ACTIVE',
-            plan: 'DEVELOPER', // In real app, map based on session.line_items
-            auditsLimit: 25,
-            stripeSubscriptionId: session.subscription as string,
-          });
-        }
-        break;
-      }
-      case 'invoice.paid': {
-        const invoice = event.data.object as any;
-        if (invoice.customer) {
-          await this.billingRepository.resetMonthlyUsage(invoice.customer as string);
-          
-          const sub = await this.billingRepository.findByUserId(invoice.customer); // We might need to find by customer
-          const userId = sub?.userId; // Assuming we can get userId from invoice customer. Let's look up user
-          // Actually billingRepository.findByUserId takes userId. We need to find by stripeCustomerId.
-          // For now, let's just log or try if we have the user email.
-          // Wait, the webhook has customer email in invoice.customer_email.
-          if (invoice.customer_email) {
-            await this.emailService.sendInvoiceConfirmation(invoice.customer_email, {
-              amount: `$${(invoice.amount_paid / 100).toFixed(2)}`,
-              plan: 'Pro Plan', // Simple fallback
-              invoiceUrl: invoice.hosted_invoice_url || '#',
-            });
-          }
-        }
-        break;
-      }
-      case 'invoice.payment_failed': {
-        const invoice = event.data.object as any;
-        if (invoice.customer) {
-          await this.billingRepository.activateSubscription(invoice.customer as string, { status: 'PAST_DUE' });
-          if (invoice.customer_email) {
-            await this.emailService.sendPaymentFailed(invoice.customer_email, {
-              amount: `$${(invoice.amount_due / 100).toFixed(2)}`,
-              updatePaymentUrl: `${this.configService.get('FRONTEND_URL')}/pricing`,
-            });
-          }
-        }
-        break;
-      }
-      case 'customer.subscription.deleted': {
-        const sub = event.data.object as any;
-        if (sub.customer) {
-          await this.billingRepository.activateSubscription(sub.customer as string, { 
-            status: 'CANCELED',
-            plan: 'FREE',
-            auditsLimit: 3,
-            stripeSubscriptionId: null,
-          });
-        }
-        break;
-      }
-      case 'customer.subscription.updated': {
-        break;
-      }
+    await this.billingRepository.ensure(userId, user.suiAddress ?? undefined);
+    const now = new Date();
+    const periodEnd = new Date(now);
+    periodEnd.setMonth(periodEnd.getMonth() + 1);
+
+    return this.billingRepository.update(userId, {
+      plan: plan as any,
+      status: 'ACTIVE',
+      auditsLimit: planDef.auditsLimit,
+      auditsUsedThisPeriod: 0,
+      currentPeriodStart: now,
+      currentPeriodEnd: periodEnd,
+      lastPaymentTx: txDigest,
+    });
+  }
+
+  /** Confirm the tx moved at least `priceUsdc` of USDC to the treasury. */
+  private async verifyUsdcPayment(txDigest: string, priceUsdc: number): Promise<void> {
+    if (!this.treasury) {
+      throw new BadRequestException('TREASURY_ADDRESS is not configured');
+    }
+
+    let tx;
+    try {
+      tx = await this.sui.getTransactionBlock({
+        digest: txDigest,
+        options: { showBalanceChanges: true, showEffects: true },
+      });
+    } catch (err: any) {
+      this.logger.error(`Failed to fetch tx ${txDigest}: ${err.message}`);
+      throw new BadRequestException('Payment transaction not found');
+    }
+
+    if (tx.effects?.status?.status !== 'success') {
+      throw new BadRequestException('Payment transaction did not succeed');
+    }
+
+    const required = BigInt(Math.round(priceUsdc * 10 ** this.usdcDecimals));
+    const credited = (tx.balanceChanges ?? []).find((c: any) => {
+      const ownerAddr =
+        typeof c.owner === 'object' && c.owner && 'AddressOwner' in c.owner
+          ? (c.owner as any).AddressOwner.toLowerCase()
+          : '';
+      return (
+        c.coinType === this.usdcType &&
+        ownerAddr === this.treasury &&
+        BigInt(c.amount) >= required
+      );
+    });
+
+    if (!credited) {
+      throw new BadRequestException(
+        `Payment does not transfer ${priceUsdc} USDC to the treasury`,
+      );
     }
   }
 
   async checkAndIncrementUsage(userId: string, count: number = 1): Promise<boolean> {
-    // TEMPORARY BYPASS FOR TESTING — remove this when billing is live
-    this.logger.debug(`[BYPASS] Skipping billing check for userId=${userId}, count=${count}`);
+    // TEMPORARY BYPASS FOR TESTING — remove this when plan enforcement is live
+    this.logger.debug(`[BYPASS] Skipping plan check for userId=${userId}, count=${count}`);
     return true;
 
-    /* Original billing logic — uncomment when Stripe is configured
-    let sub = await this.billingRepository.findByUserId(userId);
-    const user = await this.usersService.findById(userId);
-
-    if (!user) return false;
-
-    if (!sub) {
-      try {
-        const customer = await this.stripe.customers.create({
-          email: user.email,
-          metadata: { userId },
-        });
-        sub = await this.billingRepository.upsert(userId, customer.id);
-      } catch (err) {
-        this.logger.error(`Failed to create Stripe customer: ${err}`);
-        return false;
-      }
-    }
-    
-    if (sub.auditsUsedThisPeriod + count > sub.auditsLimit) {
-       if (user.email) {
-         await this.emailService.sendQuotaExceeded(user.email, {
-           limit: sub.auditsLimit,
-           resetDate: sub.currentPeriodEnd ? sub.currentPeriodEnd.toISOString() : new Date().toISOString(),
-           upgradeUrl: `${this.configService.get('FRONTEND_URL')}/pricing`,
-         });
-       }
-       return false;
-    }
-
-    const currentPct = sub.auditsUsedThisPeriod / sub.auditsLimit;
-    const newPct = (sub.auditsUsedThisPeriod + count) / sub.auditsLimit;
-    
-    if (currentPct < 0.8 && newPct >= 0.8) {
-       if (user.email) {
-         await this.emailService.sendQuotaWarning(user.email, {
-           used: sub.auditsUsedThisPeriod + count,
-           limit: sub.auditsLimit,
-           resetDate: sub.currentPeriodEnd ? sub.currentPeriodEnd.toISOString() : new Date().toISOString(),
-           upgradeUrl: `${this.configService.get('FRONTEND_URL')}/pricing`,
-         });
-       }
-    }
-
+    /* Original quota logic — uncomment when plan enforcement is desired
+    const sub = await this.billingRepository.ensure(userId);
+    if (sub.auditsUsedThisPeriod + count > sub.auditsLimit) return false;
     await this.billingRepository.incrementUsage(userId, count);
     return true;
     */

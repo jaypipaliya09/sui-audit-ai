@@ -203,7 +203,8 @@ export class AuditRepository {
         lowCount: original.lowCount,
         infoCount: original.infoCount,
         contractHash: original.contractHash,
-        userId,
+        // Guard against empty-string / missing userId violating the FK.
+        userId: userId || undefined,
       },
     });
 

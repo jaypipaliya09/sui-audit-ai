@@ -5,6 +5,7 @@ import { AUDIT_QUEUE } from '../../common/constants/queue.constants.js';
 import { ClaudeService } from '../claude/claude.service.js';
 import { WalrusService } from '../walrus/walrus.service.js';
 import { ReportService } from '../report/report.service.js';
+import { PdfService } from '../report/pdf.service.js';
 import { AuditRepository } from './audit.repository.js';
 import { AuditGateway } from './audit.gateway.js';
 import { OnChainRegistryService } from '../on-chain/on-chain-registry.service.js';
@@ -31,6 +32,7 @@ export class AuditProcessor extends WorkerHost {
     private readonly walrusService: WalrusService,
     @Inject(forwardRef(() => ReportService))
     private readonly reportService: ReportService,
+    private readonly pdfService: PdfService,
     private readonly auditRepository: AuditRepository,
     private readonly auditGateway: AuditGateway,
     private readonly onChainRegistryService: OnChainRegistryService,
@@ -62,7 +64,9 @@ export class AuditProcessor extends WorkerHost {
         this.logger.log(`Cache hit for contract hash, saved Claude API call. Cloning [${existing.id}] to [${auditId}]`);
         this.auditGateway.emitProgress(auditId, 50, 'Found exact match in cache...');
         
-        await this.auditRepository.cloneAudit(existing.id, auditId, userId);
+        // Only associate a userId that actually exists (wallet/public submits
+        // have no User row), otherwise the Audit_userId_fkey constraint fails.
+        await this.auditRepository.cloneAudit(existing.id, auditId, user?.id);
         
         let onChainTxDigest: string | undefined;
         if (this.onChainRegistryService.isConfigured()) {
@@ -107,14 +111,15 @@ export class AuditProcessor extends WorkerHost {
         },
       );
 
-      // ── Phase 3: Generate HTML Report ────────────────────────────────────
-      this.auditGateway.emitProgress(auditId, 75, 'Generating HTML report...');
+      // ── Phase 3: Generate PDF Report (render the styled HTML) ────────────
+      this.auditGateway.emitProgress(auditId, 75, 'Generating PDF report...');
       const html = this.reportService.generateHtml(result, contractName);
+      const pdf = await this.pdfService.htmlToPdf(html);
 
       // ── Phase 4: Upload to Walrus ─────────────────────────────────────────
       await this.auditRepository.updateStatus(auditId, AuditStatus.STORING);
       this.auditGateway.emitProgress(auditId, 85, 'Uploading to Walrus network...');
-      const blobId = await this.walrusService.storeReport(html);
+      const blobId = await this.walrusService.storePdf(pdf);
       const walrusUrl = this.walrusService.getReportUrl(blobId);
 
       // ── Phase 5: Persist Result to DB ─────────────────────────────────────

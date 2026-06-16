@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { useWallet } from '@/lib/walletContext';
+import { payUsdcToTreasury } from '@/lib/pay';
 import { Check, Zap, Loader2, Shield, ArrowRight, Minus } from 'lucide-react';
 
 const PLANS = [
@@ -25,13 +27,14 @@ const PLANS = [
     ],
     cta: 'Current Plan',
     priceId: null,
+    priceUsdc: 0,
     popular: false,
     accent: 'zinc',
   },
   {
     name: 'Developer',
     id: 'DEVELOPER',
-    price: '$49',
+    price: '10 USDC',
     period: '/month',
     description: 'For individual developers',
     features: [
@@ -45,14 +48,15 @@ const PLANS = [
       { text: 'API access', included: false },
     ],
     cta: 'Get Started',
-    priceId: 'price_developer_monthly',
+    priceId: 'DEVELOPER',
+    priceUsdc: 10,
     popular: true,
     accent: 'indigo',
   },
   {
     name: 'Team',
     id: 'TEAM',
-    price: '$199',
+    price: '30 USDC',
     period: '/month',
     description: 'For development teams',
     features: [
@@ -66,7 +70,8 @@ const PLANS = [
       { text: 'Custom webhooks', included: true },
     ],
     cta: 'Get Started',
-    priceId: 'price_team_monthly',
+    priceId: 'TEAM',
+    priceUsdc: 30,
     popular: false,
     accent: 'purple',
   },
@@ -87,7 +92,8 @@ const PLANS = [
       { text: 'Dedicated support', included: true },
     ],
     cta: 'Contact Sales',
-    priceId: 'price_enterprise',
+    priceId: null,
+    priceUsdc: 100,
     popular: false,
     accent: 'emerald',
   },
@@ -96,21 +102,32 @@ const PLANS = [
 export default function PricingPage() {
   const router = useRouter();
   const { isAuthenticated } = useAuth();
+  const { address, isConnected, provider } = useWallet();
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
-  const handleCheckout = async (priceId: string | null) => {
-    if (!priceId) return;
+  const handlePurchase = async (plan: { id: string; priceId: string | null; priceUsdc: number }) => {
+    if (!plan.priceId) return; // FREE / Enterprise (contact sales)
     if (!isAuthenticated) {
       router.push('/register');
       return;
     }
+    if (!isConnected || !address) {
+      setError('Connect your Slush wallet to pay in USDC.');
+      return;
+    }
 
-    setLoadingPlan(priceId);
+    setError(null);
+    setSuccess(null);
+    setLoadingPlan(plan.priceId);
     try {
-      const res = await api.createCheckout(priceId);
-      window.location.href = res.url;
-    } catch {
-      // ignore
+      const txDigest = await payUsdcToTreasury(provider, address, plan.priceUsdc);
+      await api.purchasePlan(plan.id, txDigest);
+      setSuccess(`${plan.id} plan activated — paid ${plan.priceUsdc} USDC.`);
+      setTimeout(() => router.push('/my-audits'), 1500);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Payment failed.');
     }
     setLoadingPlan(null);
   };
@@ -171,7 +188,7 @@ export default function PricingPage() {
               </ul>
 
               <button
-                onClick={() => handleCheckout(plan.priceId)}
+                onClick={() => handlePurchase(plan)}
                 disabled={!plan.priceId || loadingPlan === plan.priceId}
                 className={`w-full py-2 rounded-lg text-xs font-medium transition-all ${
                   plan.popular
@@ -199,16 +216,26 @@ export default function PricingPage() {
             </div>
             <div>
               <h3 className="text-sm font-medium text-white">Pay As You Go</h3>
-              <p className="text-xs text-zinc-500">$5 per audit. No subscription required.</p>
+              <p className="text-xs text-zinc-500">1 USDC per file via the move-auditor CLI. No subscription required.</p>
             </div>
           </div>
-          <button
-            onClick={() => handleCheckout('price_payg_per_audit')}
-            className="btn-secondary text-xs py-2"
+          <a
+            href="/my-audits"
+            className="btn-secondary text-xs py-2 inline-flex items-center gap-1"
           >
-            Get Started <ArrowRight className="w-3 h-3" />
-          </button>
+            View CLI Runs <ArrowRight className="w-3 h-3" />
+          </a>
         </div>
+
+        {(error || success) && (
+          <div
+            className={`text-center mt-6 text-xs ${
+              success ? 'text-green-400' : 'text-red-400'
+            }`}
+          >
+            {success || error}
+          </div>
+        )}
 
         {/* Trust note */}
         <div className="text-center mt-10">

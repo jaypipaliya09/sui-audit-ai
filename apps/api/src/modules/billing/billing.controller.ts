@@ -1,39 +1,30 @@
-import { Controller, Post, Body, Get, Req, UseGuards } from '@nestjs/common';
-import type { RawBodyRequest } from '@nestjs/common';
+import { Controller, Post, Body, Get, UseGuards } from '@nestjs/common';
 import { BillingService } from './billing.service.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
-import type { Request } from 'express';
 
 @Controller('billing')
 export class BillingController {
   constructor(private readonly billingService: BillingService) {}
 
-  @Post('checkout')
-  @UseGuards(JwtAuthGuard)
-  async createCheckout(@CurrentUser() user: any, @Body() body: { priceId: string }) {
-    const userId = user?.sub || user?.id;
-    return this.billingService.createCheckoutSession(userId, body.priceId);
+  /** Public: available plans + USDC prices for the pricing page. */
+  @Get('plans')
+  getPlans() {
+    return this.billingService.getPlans();
   }
 
-  @Post('webhook')
-  async handleWebhook(@Req() req: RawBodyRequest<Request>) {
-    const signature = req.headers['stripe-signature'] as string;
-    const rawBody = req.rawBody; // NestJS rawBody feature must be enabled in main.ts
-    
-    if (!rawBody) {
-      throw new Error('Raw body is missing for stripe webhook');
-    }
-
-    await this.billingService.handleWebhook(rawBody, signature);
-    return { received: true };
-  }
-
-  @Get('portal')
+  /**
+   * Activate a plan after paying in USDC from the Slush wallet.
+   * The frontend signs the USDC transfer and posts the resulting txDigest.
+   */
+  @Post('purchase')
   @UseGuards(JwtAuthGuard)
-  async createPortal(@CurrentUser() user: any) {
+  async purchase(
+    @CurrentUser() user: any,
+    @Body() body: { plan: string; txDigest: string },
+  ) {
     const userId = user?.sub || user?.id;
-    return this.billingService.createPortalSession(userId);
+    return this.billingService.purchasePlan(userId, body.plan, body.txDigest);
   }
 
   @Get('status')

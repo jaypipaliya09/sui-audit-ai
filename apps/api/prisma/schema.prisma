@@ -147,16 +147,15 @@ model Subscription {
   id                   String             @id @default(uuid())
   userId               String?            @unique
   orgId                String?            @unique
-  stripeCustomerId     String             @unique
-  stripeSubscriptionId String?            @unique
-  stripePriceId        String?
+  walletAddress        String?            @unique
+  lastPaymentTx        String?            @unique
   plan                 PlanType           @default(FREE)
   status               SubscriptionStatus @default(ACTIVE)
   currentPeriodStart   DateTime?
   currentPeriodEnd     DateTime?
   cancelAtPeriodEnd    Boolean            @default(false)
   auditsUsedThisPeriod Int                @default(0)
-  auditsLimit          Int                @default(200)
+  auditsLimit          Int                @default(3)
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
   user                 User?              @relation(fields: [userId], references: [id])
@@ -265,4 +264,34 @@ model ClaudeCallLog {
 
   @@index([createdAt])
   @@index([auditId])
+}
+
+// Per-user CLI audit runs (move-auditor package), grouped by Slush wallet.
+model AuditRun {
+  id            String         @id @default(uuid())
+  createdAt     DateTime       @default(now())
+  walletAddress String
+  totalCostUsdc Float          @default(0)
+  escrowId      String?
+  txDigest      String?
+  fileCount     Int            @default(0)
+  files         AuditRunFile[]
+
+  @@index([walletAddress])
+  @@index([createdAt])
+}
+
+model AuditRunFile {
+  id            String   @id @default(uuid())
+  runId         String
+  run           AuditRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  file          String
+  overallRisk   String
+  findingsCount Int      @default(0)
+  markdown      String   @db.Text
+  auditJson     Json?
+  blobId        String?
+  walrusUrl     String?
+
+  @@index([runId])
 }

@@ -1,0 +1,38 @@
+{
+  "name": "@sui-audit/move-auditor",
+  "version": "1.0.0",
+  "description": "Audit Sui Move contracts with Claude, pay per file from your Slush wallet",
+  "main": "dist/index.js",
+  "bin": {
+    "move-auditor": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "tsx src/index.ts",
+    "prepublishOnly": "npm run build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@mysten/sui": "^1.45.2",
+    "chalk": "^4.1.2",
+    "commander": "^12.1.0",
+    "dotenv": "^16.6.1",
+    "groq-sdk": "^0.3.3",
+    "prompts": "^2.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.3",
+    "@types/prompts": "^2.4.9",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
+  }
+}

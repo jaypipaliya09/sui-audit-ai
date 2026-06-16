@@ -1,0 +1,316 @@
+#!/usr/bin/env node
+import { Command } from 'commander';
+import chalk from 'chalk';
+import prompts from 'prompts';
+import { join } from 'path';
+import { writeFileSync, existsSync } from 'fs';
+
+import { ClaudeCliService } from './auditor/claude-cli.service';
+import { GroqReportService } from './report/groq.service';
+import { SlushWalletService } from './wallet/slush.service';
+import { planForFile, planForCodebase, AuditPlan } from './scan/scanner';
+import { AuditRunner, RunSummary } from './audit/runner';
+import { PaymentService, HoldId } from './payment/payment.service';
+import { EscrowPaymentService } from './payment/escrow.service';
+import { MockPaymentService } from './payment/mock.service';
+import { loadPayerKeypair } from './sui/client';
+import { loadConfig, saveConfig, BACKEND_URL, FRONTEND_URL } from './config';
+
+function buildPaymentService(): PaymentService {
+  if (process.env.MOVE_AUDITOR_MOCK_PAYMENT === '1') {
+    console.log(chalk.yellow('Using MOCK payment service (no real funds moved).'));
+    return new MockPaymentService();
+  }
+  const payer = loadPayerKeypair();
+  if (!payer) {
+    throw new Error(
+      'MOVE_AUDITOR_SECRET_KEY is not set. Provide your testnet key to sign ' +
+        'the escrow lock, or set MOVE_AUDITOR_MOCK_PAYMENT=1 to dry-run.',
+    );
+  }
+  return new EscrowPaymentService(payer);
+}
+
+/** Step 1: ask for and validate the Slush wallet. */
+async function connectWallet(): Promise<{ address: string; balanceSui: number }> {
+  const config = loadConfig();
+
+  // The CLI signs the escrow transactions with MOVE_AUDITOR_SECRET_KEY, so the
+  // wallet being audited must be that key's address (unless running mock mode).
+  const isMock = process.env.MOVE_AUDITOR_MOCK_PAYMENT === '1';
+  const signerAddress = isMock ? undefined : loadPayerKeypair()?.getPublicKey().toSuiAddress();
+
+  const { address } = await prompts({
+    type: 'text',
+    name: 'address',
+    message: 'Enter your Slush wallet address',
+    initial: signerAddress ?? config.walletAddress ?? '',
+  });
+  if (!address) throw new Error('No wallet address provided.');
+
+  console.log(chalk.blue('Validating wallet...'));
+  const wallet = await new SlushWalletService().validate(address);
+  if (!wallet.valid) {
+    throw new Error(`Wallet is not valid or not found: ${address}`);
+  }
+
+  // Guard against signer/wallet mismatch — the cause of cryptic
+  // "InsufficientCoinBalance" failures when funds are blocked.
+  if (signerAddress && wallet.address.toLowerCase() !== signerAddress.toLowerCase()) {
+    throw new Error(
+      `Wallet ${wallet.address} does not match your signing key.\n` +
+        `The CLI signs with MOVE_AUDITOR_SECRET_KEY, whose address is ${signerAddress}.\n` +
+        `Either enter ${signerAddress}, or set MOVE_AUDITOR_SECRET_KEY to the key for ${wallet.address}.`,
+    );
+  }
+
+  console.log(
+    chalk.green(`✓ Wallet OK — balance: ${wallet.balanceSui} SUI (${wallet.address})`),
+  );
+
+  saveConfig({ ...config, walletAddress: wallet.address });
+  return { address: wallet.address, balanceSui: wallet.balanceSui };
+}
+
+/** Step 2 + 3: choose scope and compute cost. */
+async function selectPlan(): Promise<AuditPlan> {
+  const { scope } = await prompts({
+    type: 'select',
+    name: 'scope',
+    message: 'What do you want to audit?',
+    choices: [
+      { title: 'A single .move file', value: 'file' },
+      { title: 'The full codebase', value: 'codebase' },
+    ],
+  });
+
+  let plan: AuditPlan;
+  if (scope === 'file') {
+    const { path } = await prompts({
+      type: 'text',
+      name: 'path',
+      message: 'Path to the .move file',
+    });
+    plan = planForFile(path);
+  } else {
+    const { dir } = await prompts({
+      type: 'text',
+      name: 'dir',
+      message: 'Codebase root directory',
+      initial: process.cwd(),
+    });
+    plan = planForCodebase(dir);
+  }
+
+  if (plan.files.length === 0) {
+    throw new Error('No .move files found to audit.');
+  }
+  return plan;
+}
+
+/** Upload the run to the backend so it shows in the per-user report UI. */
+async function uploadRun(summary: RunSummary): Promise<string | null> {
+  if (!BACKEND_URL) return null;
+  try {
+    const res = await fetch(`${BACKEND_URL.replace(/\/$/, '')}/audit-runs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        walletAddress: summary.walletAddress,
+        totalCostSui: summary.totalCostSui,
+        files: summary.files.map((f) => ({
+          file: f.file,
+          overallRisk: f.overallRisk,
+          findingsCount: f.findingsCount,
+          markdown: f.markdown,
+          audit: f.audit,
+        })),
+      }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { id?: string };
+    console.log(chalk.green('✓ Reports uploaded.'));
+    return data.id ?? null;
+  } catch (error) {
+    console.warn(chalk.yellow(`Could not upload reports: ${(error as Error).message}`));
+    return null;
+  }
+}
+
+async function runWizard(): Promise<void> {
+  console.log(chalk.green('\n=== Move Auditor ===\n'));
+
+  const { address: walletAddress, balanceSui } = await connectWallet();
+  const plan = await selectPlan();
+
+  // Cost summary
+  console.log(chalk.bold(`\nFound ${plan.files.length} file(s):`));
+  plan.files.slice(0, 10).forEach((f) => console.log(chalk.gray(`  • ${f}`)));
+  if (plan.files.length > 10) console.log(chalk.gray(`  …and ${plan.files.length - 10} more`));
+  console.log(chalk.bold(`\nTotal cost: ${plan.totalCostSui} SUI (1 SUI per file)\n`));
+
+  // Pre-flight: ensure the wallet can cover the cost + a gas buffer, so we fail
+  // here with a clear message instead of an on-chain InsufficientCoinBalance.
+  const GAS_BUFFER_SUI = 0.1;
+  if (!process.env.MOVE_AUDITOR_MOCK_PAYMENT && balanceSui < plan.totalCostSui + GAS_BUFFER_SUI) {
+    throw new Error(
+      `Insufficient balance: need ~${plan.totalCostSui + GAS_BUFFER_SUI} SUI ` +
+        `(${plan.totalCostSui} to block + gas), but ${walletAddress} has ${balanceSui} SUI.`,
+    );
+  }
+
+  const { proceed } = await prompts({
+    type: 'confirm',
+    name: 'proceed',
+    message: `Block ${plan.totalCostSui} SUI and start auditing?`,
+    initial: false,
+  });
+  if (!proceed) {
+    console.log(chalk.yellow('Cancelled. No funds were blocked.'));
+    return;
+  }
+
+  const payment = buildPaymentService();
+
+  // Step 4: block funds
+  console.log(chalk.blue('\nBlocking funds...'));
+  const hold = await payment.hold(plan.totalCostSui);
+  console.log(chalk.green(`✓ Blocked ${hold.amountSui} SUI (escrow ${hold.escrowId})`));
+  saveConfig({
+    ...loadConfig(),
+    pendingHold: {
+      escrowId: hold.escrowId,
+      amountSui: hold.amountSui,
+      createdAt: new Date().toISOString(),
+    },
+  });
+
+  // Rollback on Ctrl+C / fatal errors
+  let finalized = false;
+  const rollback = async (reason: string) => {
+    if (finalized) return;
+    finalized = true;
+    console.log(chalk.yellow(`\n${reason} — releasing blocked funds...`));
+    try {
+      await payment.release(hold);
+      clearPendingHold(hold);
+      console.log(chalk.green('✓ Funds released. You were not charged.'));
+    } catch (error) {
+      console.error(chalk.red(`Failed to release funds: ${(error as Error).message}`));
+      console.error(chalk.red(`Escrow ${hold.escrowId} can be refunded manually.`));
+    }
+    process.exit(130);
+  };
+  const onSigint = () => void rollback('Interrupted (Ctrl+C)');
+  process.on('SIGINT', onSigint);
+  process.on('SIGTERM', onSigint);
+
+  // Step 5: run the audit
+  try {
+    const outputDir = join(process.cwd(), 'move-auditor-reports');
+    const summary = await new AuditRunner().run(
+      plan.files,
+      outputDir,
+      walletAddress,
+      plan.totalCostSui,
+    );
+
+    // Step: deposit on success
+    console.log(chalk.blue('\nAudit complete — depositing payment...'));
+    await payment.capture(hold);
+    finalized = true;
+    clearPendingHold(hold);
+    console.log(chalk.green(`✓ Deposited ${hold.amountSui} SUI.`));
+
+    await uploadRun(summary);
+
+    console.log(chalk.green(`\n✓ Done. Reports saved to ${outputDir}`));
+    if (BACKEND_URL) {
+      const reportUrl = `${FRONTEND_URL.replace(/\/$/, '')}/my-audits`;
+      console.log(chalk.cyan('\n📄 View your report in the browser:'));
+      console.log(chalk.cyan.underline(`   ${reportUrl}`));
+      console.log(chalk.gray(`   (connect wallet ${walletAddress.slice(0, 10)}… to see it)`));
+    }
+  } catch (error) {
+    process.off('SIGINT', onSigint);
+    process.off('SIGTERM', onSigint);
+    await rollback(`Audit failed: ${(error as Error).message}`);
+  } finally {
+    process.off('SIGINT', onSigint);
+    process.off('SIGTERM', onSigint);
+  }
+}
+
+function clearPendingHold(hold: HoldId): void {
+  const config = loadConfig();
+  if (config.pendingHold?.escrowId === hold.escrowId) {
+    delete config.pendingHold;
+    saveConfig(config);
+  }
+}
+
+/** On launch, offer to release an escrow left open by a previous crash. */
+async function recoverPendingHold(payment: () => PaymentService): Promise<void> {
+  const config = loadConfig();
+  if (!config.pendingHold) return;
+
+  const { escrowId, amountSui } = config.pendingHold;
+  console.log(
+    chalk.yellow(`\nFound an unfinished escrow (${amountSui} SUI, ${escrowId}).`),
+  );
+  const { release } = await prompts({
+    type: 'confirm',
+    name: 'release',
+    message: 'Release those blocked funds back to your wallet?',
+    initial: true,
+  });
+  if (release) {
+    await payment().release({ escrowId, amountSui, txDigest: '' });
+    delete config.pendingHold;
+    saveConfig(config);
+    console.log(chalk.green('✓ Funds released.'));
+  }
+}
+
+const program = new Command();
+
+program
+  .name('move-auditor')
+  .description('Audit Sui Move contracts with Claude, pay per file from your Slush wallet')
+  .version('1.0.0');
+
+program
+  .command('audit', { isDefault: true })
+  .description('Interactive: connect wallet, choose files, pay per file, audit')
+  .action(async () => {
+    try {
+      await recoverPendingHold(buildPaymentService);
+      await runWizard();
+    } catch (error) {
+      console.error(chalk.red(`\n${(error as Error).message}`));
+      process.exit(1);
+    }
+  });
+
+program
+  .command('scan')
+  .description('Audit a single .move file directly (no payment, power-user mode)')
+  .argument('<path>', 'Path to the .move file')
+  .option('-o, --output <path>', 'Path to save the Markdown report', './audit-report.md')
+  .action(async (path: string, options: { output: string }) => {
+    if (!existsSync(path)) {
+      console.error(chalk.red(`Error: File not found at ${path}`));
+      process.exit(1);
+    }
+    try {
+      const audit = await new ClaudeCliService().auditContract(path);
+      const markdown = await new GroqReportService().generateMarkdownReport(audit);
+      const outputPath = join(process.cwd(), options.output);
+      writeFileSync(outputPath, markdown, 'utf-8');
+      console.log(chalk.green(`\n✓ Report saved to ${outputPath}\n`));
+    } catch {
+      console.error(chalk.red('\nProcess failed.'));
+      process.exit(1);
+    }
+  });
+
+program.parse(process.argv);

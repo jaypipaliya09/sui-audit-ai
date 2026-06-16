@@ -9,6 +9,7 @@ import { GitHubService } from '../github/github.service.js';
 import { RepoAuditService } from './repo-audit.service.js';
 import { RepoAuditGateway } from './repo-audit.gateway.js';
 import { RepoReportService } from '../report/repo-report.service.js';
+import { PdfService } from '../report/pdf.service.js';
 import { EmailService } from '../email/email.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import * as crypto from 'crypto';
@@ -38,6 +39,7 @@ export class RepoAuditProcessor extends WorkerHost {
     private readonly repoAuditService: RepoAuditService,
     private readonly repoAuditGateway: RepoAuditGateway,
     private readonly repoReportService: RepoReportService,
+    private readonly pdfService: PdfService,
     private readonly emailService: EmailService,
     private readonly prisma: PrismaService,
   ) {
@@ -149,12 +151,13 @@ export class RepoAuditProcessor extends WorkerHost {
         auditResults,
         crossContractAnalysis,
       });
+      const pdf = await this.pdfService.htmlToPdf(html);
 
       // ── PHASE 5 (94%): Upload to Walrus ──────────────────────────────
       this.repoAuditGateway.emitProgress(repoAuditId, 94, 'Uploading to Walrus network...');
       await this.repoAuditService.updateStatus(repoAuditId, 'STORING');
 
-      const blobId = await this.walrusService.storeReport(html);
+      const blobId = await this.walrusService.storePdf(pdf);
       const walrusUrl = this.walrusService.getReportUrl(blobId);
 
       // ── PHASE 6 (100%): On-chain anchor + save result ─────────────────

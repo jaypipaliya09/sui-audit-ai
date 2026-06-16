@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { RiskBadge } from '@/components/RiskBadge';
+import { useWallet } from '@/lib/walletContext';
 import { Loader2, CheckCircle2, XCircle, FileCode2, ArrowRight } from 'lucide-react';
 
 type FileStatus = 'queued' | 'auditing' | 'done' | 'failed';
@@ -17,6 +18,7 @@ interface FileProgress {
 export default function RepoAuditProgressPage() {
   const params = useParams();
   const router = useRouter();
+  const { saveAudit } = useWallet();
   const id = params.id as string;
 
   const [status, setStatus] = useState<'connecting' | 'processing' | 'complete' | 'error'>('connecting');
@@ -60,6 +62,17 @@ export default function RepoAuditProgressPage() {
         setOverallPct(100);
         setMessage('Repo audit complete!');
         setBlobId(data.blobId);
+        // Save to the per-wallet My Audits list (kind 'repo').
+        if (data.blobId) {
+          saveAudit({
+            auditId: id,
+            blobId: data.blobId,
+            contractName: data.repoName || data.contractName || 'Repository audit',
+            createdAt: new Date().toISOString(),
+            overallRisk: data.overallRisk || data.risk,
+            kind: 'repo',
+          });
+        }
         eventSource.close();
         setTimeout(() => router.push(`/repo-report/${data.blobId}`), 2000);
       } catch {}

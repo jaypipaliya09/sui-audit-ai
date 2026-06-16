@@ -1,11 +1,86 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Wallet, Shield, Clock, ArrowRight, ChevronLeft, ExternalLink, Zap, Scale } from 'lucide-react';
+import { Wallet, Shield, Clock, ArrowRight, ChevronLeft, ExternalLink, Zap, Scale, Terminal, FileText } from 'lucide-react';
 import { useWallet } from '@/lib/walletContext';
 import { RiskBadge } from '@/components/RiskBadge';
+import { ReportMarkdown } from '@/components/ReportMarkdown';
+import { ReportViewer } from '@/components/ReportViewer';
+import { api } from '@/lib/api';
+
+interface CliRunFile {
+  id: string;
+  file: string;
+  overallRisk: string;
+  findingsCount: number;
+  markdown?: string;
+  auditJson?: any;
+  createdAt?: string;
+  blobId?: string;
+  walrusUrl?: string;
+}
+
+/** Map the CLI structured audit JSON into the shape ReportViewer expects, so
+ * CLI reports render with the exact same UI as web audits. */
+function cliToReportAudit(file: CliRunFile) {
+  const aj = file.auditJson || {};
+  // Normalize findings so both the new structured shape and any older simple
+  // shape (location as a string, no category) render without crashing.
+  const findings = (aj.findings || []).map((f: any, i: number) => ({
+    id: f.id || `FIND-${String(i + 1).padStart(3, '0')}`,
+    title: f.title || 'Finding',
+    severity: f.severity || 'INFO',
+    category: f.category || 'OTHER',
+    location:
+      f.location && typeof f.location === 'object'
+        ? {
+            module: f.location.module || '',
+            function: f.location.function ?? null,
+            lineHint: f.location.lineHint || '',
+          }
+        : { module: '', function: null, lineHint: typeof f.location === 'string' ? f.location : '' },
+    description: f.description || '',
+    impact: f.impact || '',
+    recommendation: f.recommendation || '',
+    codeSnippet: f.codeSnippet ?? null,
+  }));
+  const count = (sev: string) =>
+    findings.filter((f: any) => (f.severity || '').toUpperCase() === sev).length;
+  return {
+    id: file.id,
+    contractName: aj.summary?.contractName || file.file.split('/').pop() || 'Contract',
+    overallRisk: aj.summary?.overallRisk || file.overallRisk,
+    createdAt: file.createdAt || new Date().toISOString(),
+    blobId: '',
+    walrusUrl: '',
+    criticalCount: count('CRITICAL'),
+    highCount: count('HIGH'),
+    mediumCount: count('MEDIUM'),
+    lowCount: count('LOW'),
+    infoCount: count('INFO'),
+    findingsJson: findings,
+    summaryJson: {
+      contractName: aj.summary?.contractName || 'Contract',
+      moduleCount: aj.summary?.moduleCount ?? 1,
+      lineCount: aj.summary?.lineCount ?? 0,
+      overallRisk: aj.summary?.overallRisk || file.overallRisk,
+      executiveSummary: aj.summary?.executiveSummary || 'No summary available.',
+      gasAnalysis: aj.gasAnalysis,
+      overallRecommendations: aj.overallRecommendations,
+    },
+  };
+}
+interface CliRun {
+  id: string;
+  createdAt: string;
+  totalCostUsdc: number;
+  txDigest?: string;
+  files: CliRunFile[];
+}
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 function shortAddr(addr: string) {
   return `${addr.slice(0, 8)}…${addr.slice(-6)}`;
@@ -16,6 +91,16 @@ export default function MyAuditsPage() {
   const { address, isConnected, myAudits } = useWallet();
   const [compareMode, setCompareMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [cliRuns, setCliRuns] = useState<CliRun[]>([]);
+  const [openFile, setOpenFile] = useState<CliRunFile | null>(null);
+
+  useEffect(() => {
+    if (!address) return;
+    api
+      .getAuditRuns(address)
+      .then((runs) => setCliRuns(runs as CliRun[]))
+      .catch(() => setCliRuns([]));
+  }, [address]);
 
   const toggleSelection = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -142,7 +227,14 @@ export default function MyAuditsPage() {
             {myAudits.map((audit, idx) => (
               <div
                 key={audit.auditId}
-                onClick={() => audit.blobId && router.push(`/report/${audit.blobId}`)}
+                onClick={() =>
+                  audit.blobId &&
+                  router.push(
+                    audit.kind === 'repo'
+                      ? `/repo-report/${audit.blobId}`
+                      : `/report/${audit.blobId}`,
+                  )
+                }
                 className={`group flex items-center gap-4 p-5 rounded-xl border border-[#21262d] bg-[#161b22] transition-all duration-200 ${
                   audit.blobId
                     ? 'hover:bg-[#1c2128] hover:border-[#30363d] cursor-pointer hover:-translate-y-0.5'
@@ -170,6 +262,13 @@ export default function MyAuditsPage() {
                 {/* Contract info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-1">
+                    <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded font-semibold ${
+                      audit.kind === 'repo'
+                        ? 'bg-purple-500/10 text-purple-300 border border-purple-500/20'
+                        : 'bg-blue-500/10 text-blue-300 border border-blue-500/20'
+                    }`}>
+                      {audit.kind === 'repo' ? 'REPO' : 'DIRECT'}
+                    </span>
                     <h3 className="font-semibold text-gray-200 truncate group-hover:text-white transition-colors">
                       {audit.contractName}
                     </h3>
@@ -191,12 +290,12 @@ export default function MyAuditsPage() {
                   {audit.blobId ? (
                     <>
                       <a
-                        href={`https://aggregator-devnet.walrus.space/v1/${audit.blobId}`}
+                        href={`${API_BASE}/reports/pdf/${audit.blobId}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={(e) => e.stopPropagation()}
                         className="p-2 rounded-lg text-gray-500 hover:text-gray-200 hover:bg-[#21262d] transition-colors"
-                        title="View on Walrus"
+                        title="View PDF report"
                       >
                         <ExternalLink className="w-4 h-4" />
                       </a>
@@ -212,7 +311,107 @@ export default function MyAuditsPage() {
             ))}
           </div>
         )}
+        {/* Move Auditor CLI runs (paid per-file audits from the move-auditor package) */}
+        <div className="mt-12">
+          <div className="flex items-center gap-2 mb-4">
+            <Terminal className="w-5 h-5 text-blue-400" />
+            <h2 className="text-xl font-black text-white tracking-tight">Move Auditor CLI Runs</h2>
+          </div>
+
+          {cliRuns.length === 0 ? (
+            <div className="text-center py-12 border border-dashed border-[#30363d] rounded-2xl">
+              <Terminal className="w-10 h-10 text-gray-700 mx-auto mb-3" />
+              <p className="text-gray-500 text-sm">
+                No CLI runs yet. Audit from the terminal with{' '}
+                <code className="text-blue-400">move-auditor</code> and pay per file in USDC.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {cliRuns.map((run) => (
+                <div key={run.id} className="rounded-xl border border-[#21262d] bg-[#161b22] p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                      <Clock className="w-3 h-3" />
+                      {new Date(run.createdAt).toLocaleString()}
+                    </span>
+                    <span className="text-xs font-semibold text-green-400 bg-green-400/10 px-2 py-1 rounded-lg">
+                      {run.totalCostUsdc} USDC · {run.files.length} file{run.files.length === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {run.files.map((f) => (
+                      <div
+                        key={f.id}
+                        className="w-full flex items-center gap-3 p-3 rounded-lg bg-[#0d1117] border border-[#21262d] hover:border-[#30363d] transition-all"
+                      >
+                        <button
+                          onClick={async () => {
+                            // Fetch the full file (auditJson + markdown) and render it.
+                            const full = await api.getAuditRun(run.id);
+                            const match = full.files.find((x: CliRunFile) => x.id === f.id);
+                            setOpenFile({ ...(match ?? f), createdAt: run.createdAt });
+                          }}
+                          className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                        >
+                          <FileText className="w-4 h-4 text-gray-500 shrink-0" />
+                          <span className="flex-1 min-w-0 truncate text-sm text-gray-300 font-mono">
+                            {f.file.split('/').pop()}
+                          </span>
+                          <span className="text-xs text-gray-600">{f.findingsCount} findings</span>
+                          <RiskBadge level={f.overallRisk as any} />
+                        </button>
+                        {f.blobId && (
+                          <a
+                            href={`${API_BASE}/reports/pdf/${f.blobId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="shrink-0 flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 px-2 py-1 rounded-lg border border-blue-500/20"
+                            title="View PDF report"
+                          >
+                            <ExternalLink className="w-3 h-3" /> PDF
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Report viewer modal */}
+      {openFile && (
+        <div
+          className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
+          onClick={() => setOpenFile(null)}
+        >
+          <div
+            className="bg-[#0d1117] border border-[#30363d] rounded-2xl max-w-5xl w-full max-h-[88vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#21262d] shrink-0">
+              <h3 className="font-mono text-sm text-gray-200 truncate">{openFile.file}</h3>
+              <button
+                onClick={() => setOpenFile(null)}
+                className="text-gray-500 hover:text-white text-sm"
+              >
+                Close
+              </button>
+            </div>
+            <div className="p-6 overflow-auto">
+              {openFile.auditJson ? (
+                <ReportViewer audit={cliToReportAudit(openFile) as any} />
+              ) : (
+                <ReportMarkdown>{openFile.markdown || 'No report content.'}</ReportMarkdown>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Floating Compare Action */}
       {compareMode && selectedIds.length > 0 && (

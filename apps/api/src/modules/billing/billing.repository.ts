@@ -10,20 +10,13 @@ export class BillingRepository {
     return this.prisma.subscription.findUnique({ where: { userId } });
   }
 
-  async findByStripeCustomerId(stripeCustomerId: string): Promise<Subscription | null> {
-    return this.prisma.subscription.findUnique({ where: { stripeCustomerId } });
+  async update(userId: string, data: Prisma.SubscriptionUpdateInput): Promise<Subscription> {
+    return this.prisma.subscription.update({ where: { userId }, data });
   }
 
-  async activateSubscription(stripeCustomerId: string, data: Prisma.SubscriptionUpdateInput): Promise<Subscription> {
+  async resetMonthlyUsage(userId: string): Promise<Subscription> {
     return this.prisma.subscription.update({
-      where: { stripeCustomerId },
-      data,
-    });
-  }
-
-  async resetMonthlyUsage(stripeCustomerId: string): Promise<Subscription> {
-    return this.prisma.subscription.update({
-      where: { stripeCustomerId },
+      where: { userId },
       data: { auditsUsedThisPeriod: 0 },
     });
   }
@@ -31,23 +24,24 @@ export class BillingRepository {
   async incrementUsage(userId: string, count: number): Promise<Subscription> {
     return this.prisma.subscription.update({
       where: { userId },
-      data: {
-        auditsUsedThisPeriod: {
-          increment: count,
-        },
-      },
+      data: { auditsUsedThisPeriod: { increment: count } },
     });
   }
 
-  async upsert(userId: string, stripeCustomerId: string): Promise<Subscription> {
+  /** Ensure a subscription row exists for the user (FREE by default). */
+  async ensure(userId: string, walletAddress?: string): Promise<Subscription> {
     return this.prisma.subscription.upsert({
       where: { userId },
-      update: { stripeCustomerId },
-      create: {
-        userId,
-        stripeCustomerId,
-        plan: 'FREE',
-      },
+      update: walletAddress ? { walletAddress } : {},
+      create: { userId, walletAddress, plan: 'FREE' },
     });
+  }
+
+  /** Has this payment tx already been redeemed for a plan? */
+  async isTxUsed(txDigest: string): Promise<boolean> {
+    const existing = await this.prisma.subscription.findUnique({
+      where: { lastPaymentTx: txDigest },
+    });
+    return !!existing;
   }
 }

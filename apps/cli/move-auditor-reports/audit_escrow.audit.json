@@ -1,0 +1,89 @@
+{
+  "summary": {
+    "contractName": "move_auditor::escrow",
+    "moduleCount": 1,
+    "lineCount": 121,
+    "overallRisk": "HIGH",
+    "executiveSummary": "This module implements a shared escrow object that holds a payer's Coin<T> for an audit job, with capture (pay treasury) and refund (return to payer) paths. The arithmetic and asset-handling are sound — funds are stored in a Balance, fully transferred, and the object is consumed on settlement, so there is no double-spend or fund-locking. However, the trust model is fundamentally broken: because the payer can unilaterally call refund at any time, the authority/treasury has no guarantee of ever being paid, defeating the core purpose of the escrow. Secondary issues include an unused status field, redundant stored amount, and missing validation of the authority address."
+  },
+  "findings": [
+    {
+      "id": "FIND-001",
+      "title": "Payer can unilaterally refund, defeating the escrow guarantee",
+      "severity": "HIGH",
+      "category": "LOGIC",
+      "location": {
+        "module": "move_auditor::escrow",
+        "function": "refund",
+        "lineHint": "Lines 110-124"
+      },
+      "description": "Both capture (funds -> authority) and refund (funds -> payer) are callable by either the payer or the authority. Since the escrow is a shared object and refund is permanently available to the payer, the payer can reclaim the funds at any moment — including after the audit service has already been rendered but before the authority captures. There is no commitment, time-lock, or status gate that prevents the payer from racing/front-running a capture with a refund.",
+      "impact": "A malicious payer can lock funds, obtain the audit deliverable, and then call refund to take the money back, leaving the authority/treasury unpaid. The escrow provides no real payment guarantee to the authority — its central security property is void. Conversely, a malicious authority can capture even on a failed/interrupted audit. The settlement outcome is decided by whoever transacts first, not by the actual audit result.",
+      "recommendation": "Make the two paths exclusively authorized: only the authority should be able to capture, and refunds should be gated by a condition that protects the authority (e.g., a time-lock/deadline after which the payer may reclaim, or an authority-signed refund). If the CLI must roll back on Ctrl+C, restrict the payer's refund to a short window before the authority has acted, or require an authority-issued cancellation capability rather than granting the payer an unconditional refund.",
+      "codeSnippet": "assert!(sender == escrow.payer || sender == escrow.authority, ENotAuthorized);\n... transfer::public_transfer(payout, payer);"
+    },
+    {
+      "id": "FIND-002",
+      "title": "The status field is set but never read",
+      "severity": "LOW",
+      "category": "LOGIC",
+      "location": {
+        "module": "move_auditor::escrow",
+        "function": null,
+        "lineHint": "Lines 26, 70, 91, 113"
+      },
+      "description": "The struct carries a status: u8 field initialized to STATUS_LOCKED, and STATUS_LOCKED is the only status constant defined. It is destructured and discarded (status: _) in both capture and refund and is never checked or transitioned. It conveys no information and is dead state.",
+      "impact": "Misleading code: a reader may assume status enforces a state machine (e.g., preventing double settlement) when it does not. The actual protection against re-settlement comes from the object being consumed by-value and deleted, not from status. The field also wastes storage and gas.",
+      "recommendation": "Remove the status field and STATUS_LOCKED, or actually use status to enforce an explicit lifecycle if multiple settlement attempts on a non-consumed object ever become possible.",
+      "codeSnippet": "status: STATUS_LOCKED,"
+    },
+    {
+      "id": "FIND-003",
+      "title": "No validation of the authority address (zero address burns funds)",
+      "severity": "LOW",
+      "category": "ASSET_SAFETY",
+      "location": {
+        "module": "move_auditor::escrow",
+        "function": "lock",
+        "lineHint": "Lines 60-83"
+      },
+      "description": "lock accepts an arbitrary authority: address with no validation. If authority is set to @0x0 (or any address the payer cannot control), a later capture transfers the entire balance there irrecoverably.",
+      "impact": "Funds can be permanently lost if the authority is misconfigured to the zero address or an unintended recipient. Since the payer supplies the value, this is primarily a self-inflicted/misconfiguration risk, but a buggy or malicious client could direct funds to a burn or attacker address.",
+      "recommendation": "Validate authority (e.g., assert it is non-zero and, depending on the design, differs from the payer). Consider hardcoding or whitelisting the treasury authority rather than accepting it as a free parameter from the payer.",
+      "codeSnippet": "public entry fun lock<T>(payment: Coin<T>, authority: address, ctx: &mut TxContext)"
+    },
+    {
+      "id": "FIND-004",
+      "title": "Redundant amount field can drift from the actual balance",
+      "severity": "INFO",
+      "category": "GAS",
+      "location": {
+        "module": "move_auditor::escrow",
+        "function": "amount",
+        "lineHint": "Lines 26, 127-129"
+      },
+      "description": "The struct stores amount: u64 separately from funds: Balance<T>, and amount() returns balance::value(&escrow.funds) rather than the stored amount field. The stored amount is only used to populate events and is otherwise duplicated state. While they happen to stay equal here (the balance is never partially modified), the two are independent sources of truth.",
+      "impact": "Extra storage/gas with no functional benefit, and a latent inconsistency risk if partial-withdrawal logic is ever added. The dual representation can confuse future maintainers about which value is authoritative.",
+      "recommendation": "Drop the stored amount field and derive the value from balance::value(&funds) wherever needed (including for event emission, by reading it before the balance is consumed).",
+      "codeSnippet": "amount: u64,"
+    }
+  ],
+  "gasAnalysis": {
+    "expensivePatterns": [
+      "Each escrow is a shared object (transfer::share_object), which is more expensive to access and creates consensus overhead compared to owned objects; for a one-payer/one-authority escrow an owned object or single-owner pattern may suffice.",
+      "Redundant on-chain state: both a status: u8 field (never read) and an amount: u64 field (duplicates balance::value) increase per-object storage cost."
+    ],
+    "optimizationSuggestions": [
+      "Remove the unused status field and the redundant amount field to reduce object size and storage rebate accounting.",
+      "Consider whether the escrow needs to be shared at all; if only the payer and a known authority interact, an owned-object design avoids shared-object consensus costs.",
+      "Read the balance value once (let amount = balance::value(&funds);) for event emission instead of carrying a duplicated field through the object's lifetime."
+    ]
+  },
+  "overallRecommendations": [
+    "Fix the core trust model (FIND-001): do not let the payer unilaterally refund an active escrow. Gate refunds behind a deadline/time-lock or an authority-issued cancellation, and restrict capture to the authority, so the audit outcome — not transaction ordering — determines settlement.",
+    "Validate the authority address at lock time to prevent funds being captured to the zero or an unintended address (FIND-003).",
+    "Remove dead/duplicated state: the unused status field and the redundant amount field (FIND-002, FIND-004).",
+    "Add unit and adversarial tests covering capture-vs-refund races, settlement by each authorized party, and rejection of unauthorized callers (ENotAuthorized).",
+    "Document and enforce the intended trust assumptions between payer and authority on-chain rather than relying on off-chain CLI behavior."
+  ]
+}

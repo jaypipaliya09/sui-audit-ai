@@ -9,7 +9,9 @@ import {
   Res,
 } from '@nestjs/common';
 import type { Response } from 'express';
+import { SkipThrottle } from '@nestjs/throttler';
 import { ReportService } from './report.service.js';
+import { WalrusService } from '../walrus/walrus.service.js';
 
 /**
  * ReportController — read-only REST endpoints for browsing audit reports.
@@ -24,7 +26,27 @@ import { ReportService } from './report.service.js';
  */
 @Controller()
 export class ReportController {
-  constructor(private readonly reportService: ReportService) {}
+  constructor(
+    private readonly reportService: ReportService,
+    private readonly walrusService: WalrusService,
+  ) {}
+
+  // ─── GET /reports/pdf/:blobId ─────────────────────────────────────────────
+  // Proxy a Walrus blob and serve it as a real PDF so browsers render it
+  // (the Walrus aggregator serves blobs as application/json).
+  @SkipThrottle()
+  @Get('reports/pdf/:blobId')
+  async getPdf(@Param('blobId') blobId: string, @Res() res: Response) {
+    try {
+      const pdf = await this.walrusService.fetchBlob(blobId);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="audit-${blobId.slice(0, 8)}.pdf"`);
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      return res.status(200).send(pdf);
+    } catch {
+      return res.status(404).send('Report not found');
+    }
+  }
 
   // ─── GET /reports ─────────────────────────────────────────────────────────
 

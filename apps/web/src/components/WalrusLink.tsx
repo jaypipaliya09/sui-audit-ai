@@ -10,7 +10,11 @@ interface WalrusLinkProps {
 
 export function WalrusLink({ blobId, walrusUrl }: WalrusLinkProps) {
   const [copied, setCopied] = useState(false);
-  const url = walrusUrl || `https://aggregator-devnet.walrus.space/v1/blobs/${blobId}`;
+  // Serve the report through our API as a real PDF (the Walrus aggregator
+  // returns application/json, so the raw link shows bytes instead of rendering).
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+  const url = `${apiBase}/reports/pdf/${blobId}`;
+  void walrusUrl;
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(url);

@@ -6,17 +6,16 @@ import Link from 'next/link';
 import { CreditCard, BarChart3, ExternalLink, Loader2, ArrowUpRight, Calendar, Zap, Shield } from 'lucide-react';
 
 const PLAN_INFO: Record<string, { audits: number | string; price: string }> = {
-  FREE:       { audits: 3, price: '$0/mo' },
-  PAY_AS_YOU_GO: { audits: 'Pay per use', price: '$5/audit' },
-  DEVELOPER:  { audits: 25, price: '$49/mo' },
-  TEAM:       { audits: 100, price: '$199/mo' },
+  FREE:       { audits: 3, price: '0 USDC/mo' },
+  PAY_AS_YOU_GO: { audits: 'Pay per file', price: '1 USDC/file' },
+  DEVELOPER:  { audits: 25, price: '10 USDC/mo' },
+  TEAM:       { audits: 100, price: '30 USDC/mo' },
   ENTERPRISE: { audits: 'Unlimited', price: 'Custom' },
 };
 
 export default function BillingPage() {
   const [billing, setBilling] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [portalLoading, setPortalLoading] = useState(false);
 
   useEffect(() => {
     api.getBillingStatus()
@@ -24,17 +23,6 @@ export default function BillingPage() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
-
-  const handlePortal = async () => {
-    setPortalLoading(true);
-    try {
-      const res = await api.createPortalSession();
-      window.location.href = res.url;
-    } catch {
-      // ignore
-    }
-    setPortalLoading(false);
-  };
 
   if (loading) {
     return (
@@ -105,16 +93,12 @@ export default function BillingPage() {
         <div className="flex gap-2 pt-3 border-t border-zinc-800/50">
           <Link href="/pricing" className="btn-primary text-xs py-2 px-3">
             <ArrowUpRight className="w-3.5 h-3.5" />
-            {currentPlan === 'FREE' ? 'Upgrade' : 'Change Plan'}
+            {currentPlan === 'FREE' ? 'Upgrade with USDC' : 'Change Plan'}
           </Link>
-          <button
-            onClick={handlePortal}
-            disabled={portalLoading || currentPlan === 'FREE'}
-            className="btn-secondary text-xs py-2 px-3 disabled:opacity-30"
-          >
-            {portalLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ExternalLink className="w-3.5 h-3.5" />}
-            Manage Billing
-          </button>
+          <Link href="/my-audits" className="btn-secondary text-xs py-2 px-3">
+            <ExternalLink className="w-3.5 h-3.5" />
+            View Reports
+          </Link>
         </div>
       </div>
 
