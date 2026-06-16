@@ -58,7 +58,7 @@ export class AuditRepository {
   }
 
   async findByBlobId(blobId: string) {
-    return this.prisma.audit.findUnique({ where: { blobId } });
+    return this.prisma.audit.findFirst({ where: { blobId } });
   }
 
   async findByHash(contractHash: string) {

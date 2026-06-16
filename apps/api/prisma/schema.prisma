@@ -16,7 +16,7 @@ model Audit {
   contractCode  String      @db.Text
   status        AuditStatus @default(QUEUED)
 
-  blobId        String?     @unique
+  blobId        String?
   walrusUrl     String?
   overallRisk   RiskLevel?
   findingsJson  Json?
@@ -220,7 +220,7 @@ model RepoAudit {
   mediumCount       Int             @default(0)
   lowCount          Int             @default(0)
   infoCount         Int             @default(0)
-  blobId            String?         @unique
+  blobId            String?
   walrusUrl         String?
   onChainTxDigest   String?
   crossContractJson Json?
