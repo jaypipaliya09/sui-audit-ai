@@ -11,9 +11,8 @@ import { AuditProcessor } from './audit.processor.js';
 import { AuditGateway } from './audit.gateway.js';
 import { AuditRepository } from './audit.repository.js';
 import { OnChainModule } from '../on-chain/on-chain.module.js';
-import { BillingModule } from '../billing/billing.module.js';
+import { SubscriptionModule } from '../subscription/subscription.module.js';
 import { AuthModule } from '../auth/auth.module.js';
-import { ApiKeysModule } from '../api-keys/api-keys.module.js';
 import { RateLimitModule } from '../rate-limiting/rate-limit.module.js';
 
 @Module({
@@ -25,9 +24,8 @@ import { RateLimitModule } from '../rate-limiting/rate-limit.module.js';
     WalrusModule,
     forwardRef(() => ReportModule),
     OnChainModule,
-    BillingModule,
+    SubscriptionModule,
     AuthModule,
-    ApiKeysModule,
     RateLimitModule,
   ],
   controllers: [AuditController],

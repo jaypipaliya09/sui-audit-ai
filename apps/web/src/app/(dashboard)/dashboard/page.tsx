@@ -19,14 +19,14 @@ export default function DashboardPage() {
   useEffect(() => {
     Promise.all([
       api.getReports(1, 10).catch(() => ({ data: [], total: 0 })),
-      api.getBillingStatus().catch(() => null),
-    ]).then(([reports, billing]) => {
+      api.getSubscriptionStatus().catch(() => null),
+    ]).then(([reports, sub]) => {
       setAudits(reports.data || []);
-      if (billing) {
+      if (sub) {
         setUsage({
-          used: billing.auditsUsed || 0,
-          limit: billing.auditsLimit || 50,
-          resetDate: billing.resetDate || '',
+          used: sub.auditsUsedThisPeriod || 0,
+          limit: sub.auditsLimit || 50,
+          resetDate: sub.currentPeriodEnd || '',
         });
       }
       setLoading(false);
@@ -107,9 +107,6 @@ export default function DashboardPage() {
             <span className="text-xs font-medium text-zinc-400">Current Plan</span>
           </div>
           <p className="text-2xl font-bold text-white">{user?.plan || 'FREE'}</p>
-          <Link href="/pricing" className="text-[11px] text-indigo-400 hover:text-indigo-300 transition-colors mt-0.5 inline-block">
-            Upgrade →
-          </Link>
         </div>
       </div>
 

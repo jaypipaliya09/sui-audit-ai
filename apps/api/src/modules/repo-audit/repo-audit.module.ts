@@ -9,10 +9,9 @@ import { GitHubModule } from '../github/github.module.js';
 import { ClaudeModule } from '../claude/claude.module.js';
 import { WalrusModule } from '../walrus/walrus.module.js';
 import { OnChainModule } from '../on-chain/on-chain.module.js';
-import { BillingModule } from '../billing/billing.module.js';
+import { SubscriptionModule } from '../subscription/subscription.module.js';
 import { ReportModule } from '../report/report.module.js';
 import { AuthModule } from '../auth/auth.module.js';
-import { ApiKeysModule } from '../api-keys/api-keys.module.js';
 import { RateLimitModule } from '../rate-limiting/rate-limit.module.js';
 
 @Module({
@@ -22,10 +21,9 @@ import { RateLimitModule } from '../rate-limiting/rate-limit.module.js';
     ClaudeModule,
     WalrusModule,
     OnChainModule,
-    BillingModule,
+    SubscriptionModule,
     ReportModule,
     AuthModule,
-    ApiKeysModule,
     RateLimitModule,
   ],
   controllers: [RepoAuditController],

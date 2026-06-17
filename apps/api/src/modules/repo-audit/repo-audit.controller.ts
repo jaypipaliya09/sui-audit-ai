@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Param, Query, Body, UseGuards, Sse, Header, NotFoundException, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Post, Get, Param, Query, Body, UseGuards, Sse, Header, NotFoundException, ForbiddenException, ParseUUIDPipe } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { Observable, of } from 'rxjs';
@@ -10,7 +10,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { GitHubService } from '../github/github.service.js';
 import { RepoAuditService } from './repo-audit.service.js';
 import { RepoAuditGateway } from './repo-audit.gateway.js';
-import { BillingService } from '../billing/billing.service.js';
+import { SubscriptionService } from '../subscription/subscription.service.js';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 
@@ -23,7 +23,7 @@ export class RepoAuditController {
     private readonly githubService: GitHubService,
     private readonly repoAuditService: RepoAuditService,
     private readonly repoAuditGateway: RepoAuditGateway,
-    private readonly billingService: BillingService,
+    private readonly subscriptionService: SubscriptionService,
     private readonly configService: ConfigService,
   ) {
     const host = this.configService.get<string>('REDIS_HOST') || 'localhost';
@@ -65,11 +65,11 @@ export class RepoAuditController {
 
     const userId = user?.userId || user?.sub || user?.id;
 
-    // Check quota (Bypassed per user request)
-    await this.billingService.checkAndIncrementUsage(userId, filesCount);
-    // if (!allowed) {
-    //   throw new NotFoundException('Insufficient audit credits. Please upgrade your plan.');
-    // }
+    // Enforce audit quota
+    const allowed = await this.subscriptionService.checkAndIncrementUsage(userId, filesCount);
+    if (!allowed) {
+      throw new ForbiddenException('Insufficient audit credits for this repository.');
+    }
 
     // Create RepoAudit record
     const repoAudit = await this.repoAuditService.createRepoAudit({

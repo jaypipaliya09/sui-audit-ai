@@ -14,8 +14,7 @@ import { AuditModule } from './modules/audit/audit.module.js';
 import { HealthController } from './modules/health/health.controller.js';
 import { UsersModule } from './modules/users/users.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
-import { BillingModule } from './modules/billing/billing.module.js';
-import { ApiKeysModule } from './modules/api-keys/api-keys.module.js';
+import { SubscriptionModule } from './modules/subscription/subscription.module.js';
 import { RateLimitModule } from './modules/rate-limiting/rate-limit.module.js';
 import { OnChainModule } from './modules/on-chain/on-chain.module.js';
 import { GitHubModule } from './modules/github/github.module.js';
@@ -76,8 +75,7 @@ import { AuditRunsModule } from './modules/audit-runs/audit-runs.module.js';
     AuditModule,
     UsersModule,
     AuthModule,
-    BillingModule,
-    ApiKeysModule,
+    SubscriptionModule,
     RateLimitModule,
     OnChainModule,
     GitHubModule,

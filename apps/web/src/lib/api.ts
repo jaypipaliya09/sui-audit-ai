@@ -173,12 +173,43 @@ class ApiClient {
     return this.request<any>('/admin/metrics');
   }
 
+  async getAdminUsage(params: {
+    granularity?: 'day' | 'month' | 'year';
+    from?: string;
+    to?: string;
+    plan?: string;
+    status?: string;
+    risk?: string;
+  } = {}) {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v) qs.set(k, v);
+    });
+    const query = qs.toString();
+    return this.request<any>(`/admin/usage${query ? `?${query}` : ''}`);
+  }
+
   async getAdminAudits(page = 1, limit = 10) {
     return this.request<any>(`/admin/audits?page=${page}&limit=${limit}`);
   }
 
   async getAdminUsers(page = 1, limit = 20) {
     return this.request<any>(`/admin/users?page=${page}&limit=${limit}`);
+  }
+
+  async getAdminUserDetail(id: string) {
+    return this.request<any>(`/admin/users/${id}`);
+  }
+
+  async setUserBlocked(id: string, isBlocked: boolean) {
+    return this.request<any>(`/admin/users/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isBlocked }),
+    });
+  }
+
+  async deleteUser(id: string) {
+    return this.request<any>(`/admin/users/${id}`, { method: 'DELETE' });
   }
 
   async updateUserPlan(userId: string, plan: string) {
@@ -188,23 +219,9 @@ class ApiClient {
     });
   }
 
-  // ── Billing (Slush / USDC) ──
-  async getPlans() {
-    return this.request<Record<string, { priceUsdc: number; auditsLimit: number }>>(
-      '/billing/plans',
-    );
-  }
-
-  /** Activate a plan after paying USDC from Slush; verified on-chain by txDigest. */
-  async purchasePlan(plan: string, txDigest: string) {
-    return this.request<any>('/billing/purchase', {
-      method: 'POST',
-      body: JSON.stringify({ plan, txDigest }),
-    });
-  }
-
-  async getBillingStatus() {
-    return this.request<any>('/billing/status');
+  // ── Subscription (plan + usage; plans are assigned by an admin) ──
+  async getSubscriptionStatus() {
+    return this.request<any>('/subscription/status');
   }
 
   // ── Audit runs (move-auditor CLI, per Slush wallet) ──
@@ -214,22 +231,6 @@ class ApiClient {
 
   async getAuditRun(id: string) {
     return this.request<any>(`/audit-runs/${id}`);
-  }
-
-  // ── API Keys ──
-  async createApiKey(data: { name: string; scopes?: string[] }) {
-    return this.request<any>('/api-keys', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async listApiKeys() {
-    return this.request<any[]>('/api-keys');
-  }
-
-  async revokeApiKey(id: string) {
-    return this.request<any>(`/api-keys/${id}`, { method: 'DELETE' });
   }
 }
 

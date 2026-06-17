@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service.js';
 import * as bcrypt from 'bcrypt';
@@ -97,7 +97,11 @@ export class AuthService {
   }
 
   async generateTokens(user: any) {
-    const payload = { 
+    if (user.isBlocked) {
+      throw new ForbiddenException('This account has been blocked. Contact an administrator.');
+    }
+
+    const payload = {
       sub: user.id, 
       email: user.email, 
       role: user.role, 

@@ -77,13 +77,13 @@ model User {
   updatedAt     DateTime  @updatedAt
   orgId         String?
   role          UserRole  @default(MEMBER)
-  
+  isBlocked     Boolean   @default(false)
+
   organization  Organization? @relation(fields: [orgId], references: [id])
   subscription  Subscription?
   audits        Audit[]
   emailTokens   EmailVerificationToken[]
   refreshTokens RefreshToken[]
-  apiKeys       ApiKey[]
   repoAudits    RepoAudit[]
 
   @@index([email])
@@ -160,23 +160,6 @@ model Subscription {
   updatedAt            DateTime           @updatedAt
   user                 User?              @relation(fields: [userId], references: [id])
   org                  Organization?      @relation(fields: [orgId], references: [id])
-}
-
-model ApiKey {
-  id         String    @id @default(uuid())
-  userId     String
-  name       String
-  keyHash    String    @unique
-  keyPrefix  String
-  scopes     String[]
-  rateLimit  Int?
-  lastUsedAt DateTime?
-  expiresAt  DateTime?
-  revokedAt  DateTime?
-  createdAt  DateTime  @default(now())
-  user       User      @relation(fields: [userId], references: [id])
-  
-  @@index([userId])
 }
 
 enum ProjectTrack {

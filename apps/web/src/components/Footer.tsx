@@ -1,12 +1,18 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Shield } from 'lucide-react';
+
+// App-shell and auth routes render their own chrome — no marketing footer there.
+const HIDDEN_PREFIXES = [
+  '/dashboard', '/history', '/compare', '/settings', '/repo-audit',
+  '/admin', '/login', '/register', '/verify-email',
+];
 
 const FOOTER_LINKS = {
   Product: [
     { label: 'How It Works', href: '/how-it-works' },
-    { label: 'Pricing', href: '/pricing' },
     { label: 'Verify Audit', href: '/verify' },
   ],
   Resources: [
@@ -22,6 +28,12 @@ const FOOTER_LINKS = {
 };
 
 export function Footer() {
+  const pathname = usePathname();
+  const isHidden = HIDDEN_PREFIXES.some(
+    (p) => pathname === p || pathname.startsWith(p + '/'),
+  );
+  if (isHidden) return null;
+
   return (
     <footer className="border-t border-zinc-900 bg-[#09090b]">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12">

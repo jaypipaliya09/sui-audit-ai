@@ -11,7 +11,6 @@ import { useAuth } from '@/lib/auth';
 const PUBLIC_LINKS = [
   { href: '/', label: 'Home' },
   { href: '/how-it-works', label: 'How It Works' },
-  { href: '/pricing', label: 'Pricing' },
   { href: '/my-audits', label: 'My Audits' },
   { href: '/verify', label: 'Verify' },
 ];
@@ -27,8 +26,6 @@ export function Navbar() {
   // Hide default navbar on dashboard and auth pages (they have their own layout)
   const isHiddenPage = pathname.startsWith('/dashboard') ||
     pathname.startsWith('/history') ||
-    pathname.startsWith('/api-keys') ||
-    pathname.startsWith('/billing') ||
     pathname.startsWith('/compare') ||
     pathname.startsWith('/settings') ||
     pathname.startsWith('/admin') ||
@@ -92,7 +89,7 @@ export function Navbar() {
             <WalletButton />
           </div>
 
-          {isAuthenticated ? (
+          {isAuthenticated && (
             <div className="relative hidden md:block">
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
@@ -128,13 +125,6 @@ export function Navbar() {
                 </>
               )}
             </div>
-          ) : (
-            <Link
-              href="/admin/login"
-              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium text-zinc-400 hover:text-white transition-colors"
-            >
-              Sign In
-            </Link>
           )}
 
           <Link

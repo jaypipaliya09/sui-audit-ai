@@ -1,9 +1,9 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
-import { BillingService } from '../../billing/billing.service.js';
+import { SubscriptionService } from '../../subscription/subscription.service.js';
 
 @Injectable()
 export class AuditQuotaGuard implements CanActivate {
-  constructor(private readonly billingService: BillingService) {}
+  constructor(private readonly subscriptionService: SubscriptionService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
@@ -19,7 +19,7 @@ export class AuditQuotaGuard implements CanActivate {
       return false; // Authentication is handled by other guards, but just in case
     }
 
-    const sub = await this.billingService.getStatus(user.userId);
+    const sub = await this.subscriptionService.getStatus(user.userId);
     
     const used = sub ? sub.auditsUsedThisPeriod : 0;
     const limit = sub ? sub.auditsLimit : 3;

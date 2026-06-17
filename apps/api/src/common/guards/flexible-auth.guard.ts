@@ -1,15 +1,13 @@
 import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { ApiKeysService } from '../../modules/api-keys/api-keys.service.js';
-import { BillingService } from '../../modules/billing/billing.service.js';
+import { SubscriptionService } from '../../modules/subscription/subscription.service.js';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class FlexibleAuthGuard implements CanActivate {
   constructor(
     private readonly jwtService: JwtService,
-    private readonly apiKeysService: ApiKeysService,
-    private readonly billingService: BillingService,
+    private readonly subscriptionService: SubscriptionService,
     private readonly configService: ConfigService,
   ) {}
 
@@ -27,37 +25,14 @@ export class FlexibleAuthGuard implements CanActivate {
       throw new UnauthorizedException('Missing Authorization header');
     }
 
-    if (authHeader.startsWith('Bearer maud_')) {
-      // Validate API Key
-      const rawKey = authHeader.replace('Bearer ', '');
-      const apiKey = await this.apiKeysService.validateKey(rawKey);
-      
-      if (!apiKey) {
-        throw new UnauthorizedException('Invalid API Key');
-      }
-
-      const sub = await this.billingService.getStatus(apiKey.userId);
-
-      // We included `user` in validateKey
-      const userObj = (apiKey as any).user;
-
-      request.user = {
-        userId: apiKey.userId,
-        email: userObj?.email,
-        role: userObj?.role,
-        orgId: userObj?.orgId,
-        plan: sub ? sub.plan : 'FREE',
-      };
-
-      return true;
-    } else if (authHeader.startsWith('Bearer eyJ')) {
+    if (authHeader.startsWith('Bearer eyJ')) {
       // Validate JWT
       const token = authHeader.replace('Bearer ', '');
       try {
         const secret = this.configService.get<string>('JWT_ACCESS_SECRET') || 'super_secret_access_key_123';
         const payload = await this.jwtService.verifyAsync(token, { secret });
         
-        const sub = await this.billingService.getStatus(payload.sub);
+        const sub = await this.subscriptionService.getStatus(payload.sub);
 
         request.user = {
           userId: payload.sub,

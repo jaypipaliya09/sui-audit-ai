@@ -22,7 +22,13 @@ export default function LoginPage() {
 
     try {
       await login(email, password);
-      router.push('/dashboard');
+      let role: string | undefined;
+      try {
+        role = JSON.parse(localStorage.getItem('user') || '{}').role;
+      } catch {
+        role = undefined;
+      }
+      router.push(role === 'ADMIN' || role === 'OWNER' ? '/admin/dashboard' : '/dashboard');
     } catch (err: any) {
       setError(err.message || 'Login failed');
     } finally {

@@ -5,15 +5,13 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import {
-  LayoutDashboard, Clock, Key, CreditCard,
+  LayoutDashboard, Clock,
   LogOut, Shield, ChevronRight, Loader2, Settings, PanelLeftClose, PanelLeft,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/history', label: 'Audit History', icon: Clock },
-  { href: '/api-keys', label: 'API Keys', icon: Key },
-  { href: '/billing', label: 'Billing', icon: CreditCard },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 

@@ -14,8 +14,10 @@ export class EmailService {
   private readonly logger = new Logger(EmailService.name);
   private transporter: nodemailer.Transporter | null = null;
   private readonly defaultFrom = 'MoveAuditor <audits@moveauditor.xyz>';
+  private readonly receiverEmail: string;
 
   constructor(private readonly configService: ConfigService) {
+    this.receiverEmail = this.configService.get<string>('NOTIFY_EMAIL') || 'suiauditer@gmail.com';
     this.initializeTransporter();
   }
 
@@ -43,18 +45,18 @@ export class EmailService {
 
   private async sendEmail(options: { to: string; subject: string; html: string; from?: string }) {
     if (!this.transporter) {
-      this.logger.debug(`[MOCK EMAIL to ${options.to}] Subject: ${options.subject}`);
+      this.logger.debug(`[MOCK EMAIL to ${this.receiverEmail}] (intended ${options.to}) Subject: ${options.subject}`);
       return;
     }
 
     try {
       await this.transporter.sendMail({
         from: options.from || this.defaultFrom,
-        to: options.to,
+        to: this.receiverEmail,
         subject: options.subject,
         html: options.html,
       });
-      this.logger.log(`Email sent to ${options.to}: ${options.subject}`);
+      this.logger.log(`Email sent to ${this.receiverEmail} (intended ${options.to}): ${options.subject}`);
     } catch (error) {
       this.logger.error(`Failed to send email to ${options.to}: ${error}`);
     }

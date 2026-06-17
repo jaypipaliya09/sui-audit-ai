@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service.js';
 import { PdfService } from '../report/pdf.service.js';
 import { ReportService } from '../report/report.service.js';
 import { WalrusService } from '../walrus/walrus.service.js';
+import { UsersService } from '../users/users.service.js';
 
 export interface CreateAuditRunFile {
   file: string;
@@ -29,10 +30,23 @@ export class AuditRunsService {
     private readonly pdfService: PdfService,
     private readonly reportService: ReportService,
     private readonly walrusService: WalrusService,
+    private readonly usersService: UsersService,
   ) {}
 
   /** Store a completed CLI audit run + its per-file reports, each as a PDF on Walrus. */
   async create(dto: CreateAuditRunDto) {
+    const walletAddress = dto.walletAddress.toLowerCase();
+
+    // Register the Slush wallet as a user if we haven't seen it before, so CLI
+    // users surface in the admin portal alongside web/Sui users.
+    try {
+      await this.usersService.upsertBySuiAddress(walletAddress);
+    } catch (err) {
+      this.logger.warn(
+        `Could not register CLI wallet ${walletAddress}: ${(err as Error).message}`,
+      );
+    }
+
     // Generate a PDF per file and store it on Walrus (same as the web flow).
     const filesWithBlobs = await Promise.all(
       (dto.files ?? []).map(async (f) => {
@@ -64,7 +78,7 @@ export class AuditRunsService {
 
     return this.prisma.auditRun.create({
       data: {
-        walletAddress: dto.walletAddress.toLowerCase(),
+        walletAddress,
         totalCostUsdc: dto.totalCostUsdc ?? 0,
         escrowId: dto.escrowId,
         txDigest: dto.txDigest,
