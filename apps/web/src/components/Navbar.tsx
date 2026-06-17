@@ -89,7 +89,7 @@ export function Navbar() {
             <WalletButton />
           </div>
 
-          {isAuthenticated && (
+          {isAuthenticated && user?.role !== 'ADMIN' && user?.role !== 'OWNER' && (
             <div className="relative hidden md:block">
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
@@ -157,7 +157,7 @@ export function Navbar() {
               {link.label}
             </Link>
           ))}
-          {isAuthenticated && (
+          {isAuthenticated && user?.role !== 'ADMIN' && user?.role !== 'OWNER' && (
             <Link
               href="/dashboard"
               className="block px-3 py-2.5 rounded-lg text-sm text-indigo-400 hover:bg-indigo-500/10 transition-colors"

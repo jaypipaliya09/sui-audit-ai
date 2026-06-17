@@ -1,41 +1,119 @@
 {
-  "contractName": "registry",
-  "overallRisk": "HIGH",
+  "summary": {
+    "contractName": "move_auditor::registry",
+    "moduleCount": 1,
+    "lineCount": 75,
+    "overallRisk": "HIGH",
+    "executiveSummary": "This registry module anchors off-chain AI audit results on-chain in a shared object, but it performs no access control or input validation on the write path, so any account can write arbitrary, attacker-controlled audit verdicts. The most serious problem is that `table::add` aborts on duplicate keys, letting an attacker permanently squat a contract hash with a forged record and block the legitimate audit from ever being recorded. Because the on-chain record fully trusts unverified off-chain AI output, the registry cannot be relied upon as a source of truth without authorization and an upsert/overwrite path."
+  },
   "findings": [
     {
+      "id": "FIND-001",
+      "title": "Missing access control on anchor_audit allows anyone to forge audit records",
       "severity": "HIGH",
-      "title": "Missing access control on anchor_audit",
-      "description": "anchor_audit is a public entry function that anyone can call. There is no AdminCap, capability check, or allowlist gating who may write records. Any account can anchor arbitrary audit records, setting overall_risk to any value and recording themselves as the auditor_address. Because verify_audit only checks for key presence, an attacker can mark malicious/unaudited contracts as 'audited' (e.g. overall_risk = 0/Clean), undermining the entire trust model of the registry. The auditor_address field is purely self-reported and gives no real provenance.",
-      "location": "anchor_audit",
-      "recommendation": "Introduce an AuditorCap (capability) object minted in init and transferred to a trusted authority, and require it as a parameter to anchor_audit. Alternatively maintain an on-chain allowlist of authorized auditor addresses checked via assert! against tx_context::sender. Validate that only legitimately-derived signatures/capabilities can write records."
+      "category": "ACCESS_CONTROL",
+      "location": {
+        "module": "move_auditor::registry",
+        "function": "anchor_audit",
+        "lineHint": "Lines 45-72"
+      },
+      "description": "anchor_audit is a public entry function with no capability check, allow-list, or admin gate. The auditor_address field is populated from tx_context::sender(ctx), meaning the 'auditor' is simply whoever submits the transaction. Any address can therefore anchor a record for any contract_hash with any overall_risk and any walrus_blob_id.",
+      "impact": "An attacker can register a malicious contract as overall_risk=0 (Clean), or smear a legitimate contract as Critical, or point walrus_blob_id at a fabricated report. Any consumer that calls verify_audit and trusts the result can be deceived. The registry has no integrity guarantee.",
+      "recommendation": "Introduce an AuditorCap (capability object) minted in init and transferred to the trusted auditor service, and require it as a parameter to anchor_audit. Alternatively maintain an on-chain allow-list of authorized auditor addresses and assert membership. Do not derive trust solely from tx sender.",
+      "codeSnippet": "public entry fun anchor_audit(registry: &mut AuditRegistry, contract_hash: vector<u8>, walrus_blob_id: vector<u8>, overall_risk: u8, ctx: &mut TxContext) { ... let auditor_address = tx_context::sender(ctx); ... }"
     },
     {
+      "id": "FIND-002",
+      "title": "Duplicate-key abort enables permanent record squatting and re-audit DoS",
       "severity": "HIGH",
-      "title": "Hash squatting / permanent denial via duplicate key abort",
-      "description": "table::add aborts if the key already exists. Since contract_hash is used as the table key and anyone can call anchor_audit, an attacker can front-run or pre-emptively insert a record for any contract_hash. Once a hash is occupied, the legitimate auditor can never anchor the real audit for that hash because every subsequent table::add with the same key will abort. This is a griefing/denial-of-service vector and lets an attacker permanently pin a false record (e.g. wrong risk level or attacker-controlled blob id) for a target contract.",
-      "location": "anchor_audit (table::add)",
-      "recommendation": "Check table::contains before adding and decide on explicit semantics: either reject duplicates with a clear error, or gate updates behind a capability and use table::remove + table::add (or a borrow_mut update path) so an authorized auditor can overwrite. Combined with access control, this prevents unauthorized squatting."
+      "category": "DOS",
+      "location": {
+        "module": "move_auditor::registry",
+        "function": "anchor_audit",
+        "lineHint": "Lines 56-63"
+      },
+      "description": "The record is stored with table::add(&mut registry.records, contract_hash, ...). table::add aborts if the key already exists. Combined with the lack of access control (FIND-001), the first writer of any contract_hash owns that slot forever — there is no update, upsert, or remove path anywhere in the module.",
+      "impact": "An attacker who front-runs or simply gets there first can pin a forged verdict to a contract_hash that can never be corrected. A legitimate re-audit (e.g. after the auditor improves, or to refresh a stale verdict) is impossible without it aborting. This is both an integrity lock-in and a denial-of-service against the audit workflow.",
+      "recommendation": "Decide on intended semantics. If records should be updatable by an authorized auditor, check table::contains and use table::remove + table::add (or a mutable borrow) to overwrite. If records are immutable by design, the missing access control (FIND-001) must be fixed first so an attacker cannot pre-occupy keys, and consider keying by (contract_hash, version) to allow new audits over time.",
+      "codeSnippet": "table::add(&mut registry.records, contract_hash, AuditRecord { ... });"
     },
     {
+      "id": "FIND-003",
+      "title": "Unverified off-chain AI result anchored on-chain (trust boundary / replay)",
       "severity": "MEDIUM",
-      "title": "overall_risk value is not validated",
-      "description": "overall_risk is a u8 documented to only use values 0-4 (Clean..Critical), but no validation enforces this range. A caller can store arbitrary values (e.g. 200), producing records that downstream consumers and the AuditAnchored event may misinterpret, breaking risk-level assumptions and any UI/indexer logic that maps the value to a label.",
-      "location": "anchor_audit",
-      "recommendation": "Add assert!(overall_risk <= 4, E_INVALID_RISK); before storing, or model risk as an enum/typed wrapper to constrain the domain of valid values."
+      "category": "LOGIC",
+      "location": {
+        "module": "move_auditor::registry",
+        "function": "anchor_audit",
+        "lineHint": "Lines 45-72"
+      },
+      "description": "overall_risk and walrus_blob_id are off-chain AI model outputs passed in as raw parameters with no signature, attestation, or binding between contract_hash and the Walrus blob. The contract has no way to confirm that the blob at walrus_blob_id actually corresponds to contract_hash or that the risk score was produced by the intended model. There is also no nonce/epoch binding, so a previously valid (risk, blob) tuple for one contract can be replayed for another.",
+      "impact": "On the AI track this is the core trust-boundary weakness: a caller can inject arbitrary AI verdicts or replay an old/benign audit result, and the chain records it as authoritative. Downstream dApps treating the anchored record as proof of audit are misled.",
+      "recommendation": "Bind and authenticate the off-chain result: require the AuditorCap (FIND-001), and ideally verify a signature from the auditing service over the tuple (contract_hash, walrus_blob_id, overall_risk, audited_at/nonce). Emit and store the signer/model identity so consumers can scope their trust.",
+      "codeSnippet": "let audited_at = tx_context::epoch_timestamp_ms(ctx); ... AuditRecord { contract_hash, walrus_blob_id, overall_risk, audited_at, auditor_address }"
     },
     {
+      "id": "FIND-004",
+      "title": "overall_risk value is not range-validated",
       "severity": "LOW",
-      "title": "No ability to update or remove records / unbounded growth",
-      "description": "The contract only supports inserts. Records can never be corrected, revoked, or deleted once written, so an erroneous or malicious record is permanent. The records table also grows without bound and the registry has no mechanism to prune, archive, or migrate, which can increase long-term storage costs and operational rigidity.",
-      "location": "AuditRegistry / module-wide",
-      "recommendation": "Add capability-gated update and revoke functions (e.g. mark a record as superseded or remove it), and consider versioning records by (contract_hash, timestamp) if historical audits should be retained rather than overwritten."
+      "category": "LOGIC",
+      "location": {
+        "module": "move_auditor::registry",
+        "function": "anchor_audit",
+        "lineHint": "Line 50, 59"
+      },
+      "description": "overall_risk is documented as 0..=4 (Clean..Critical) but is accepted as any u8. No assertion enforces the valid range.",
+      "impact": "Out-of-range values (e.g. 200) get stored and emitted, breaking off-chain consumers and dashboards that map the integer to a risk label, and undermining any on-chain logic that branches on the score.",
+      "recommendation": "Add assert!(overall_risk <= 4, E_INVALID_RISK); at the start of anchor_audit, with a named error constant.",
+      "codeSnippet": "overall_risk: u8, // 0=Clean 1=Low 2=Medium 3=High 4=Critical"
     },
     {
+      "id": "FIND-005",
+      "title": "No validation of contract_hash / walrus_blob_id length or emptiness",
+      "severity": "LOW",
+      "category": "LOGIC",
+      "location": {
+        "module": "move_auditor::registry",
+        "function": "anchor_audit",
+        "lineHint": "Lines 47-48"
+      },
+      "description": "contract_hash and walrus_blob_id are arbitrary vector<u8> with no length checks. An empty vector or a wrong-length value is accepted, and an empty contract_hash can occupy the table key.",
+      "impact": "Garbage or empty keys/blobs pollute the registry, and an empty contract_hash key can be squatted, reducing data quality and reliability of verify_audit lookups.",
+      "recommendation": "Assert expected lengths (e.g. 32 bytes for a SHA-256 contract hash) and non-empty walrus_blob_id before insertion.",
+      "codeSnippet": "contract_hash: vector<u8>, walrus_blob_id: vector<u8>,"
+    },
+    {
+      "id": "FIND-006",
+      "title": "Redundant storage of contract_hash inflates per-record storage cost",
       "severity": "INFO",
-      "title": "Inputs walrus_blob_id and contract_hash are unvalidated and unbounded",
-      "description": "contract_hash and walrus_blob_id are raw vector<u8> with no length or format validation. A caller can pass empty or oversized vectors. An empty contract_hash key is still a valid (and squattable) table entry, and overly large blobs increase storage cost. This is informational given the access-control fixes above, but worth hardening.",
-      "location": "anchor_audit",
-      "recommendation": "Assert expected lengths (e.g. fixed 32-byte hash) and reject empty vectors. Enforce a reasonable maximum length for walrus_blob_id."
+      "category": "GAS",
+      "location": {
+        "module": "move_auditor::registry",
+        "function": "anchor_audit",
+        "lineHint": "Lines 56-63"
+      },
+      "description": "contract_hash is used as the Table key and is also stored again inside the AuditRecord value. Each record persists the hash twice.",
+      "impact": "Higher storage rebate footprint and per-audit gas cost; for a registry intended to scale to many audits this is pure overhead with no functional benefit since the key already identifies the record.",
+      "recommendation": "Drop the contract_hash field from AuditRecord (the Table key already provides it), or remove it from the value if it is only needed for event emission.",
+      "codeSnippet": "AuditRecord { contract_hash, walrus_blob_id, overall_risk, audited_at, auditor_address }"
     }
+  ],
+  "gasAnalysis": {
+    "expensivePatterns": [
+      "contract_hash stored both as the Table key and inside the AuditRecord value, doubling per-record storage for the hash.",
+      "Unbounded growth of the records Table with no removal/pruning path; storage footprint only ever increases."
+    ],
+    "optimizationSuggestions": [
+      "Remove the duplicated contract_hash field from AuditRecord to cut per-record storage.",
+      "Add input validation (length/range asserts) early to abort cheaply before performing the storage write.",
+      "Consider whether copy/drop on AuditRecord is needed; keeping abilities minimal avoids accidental expensive copies."
+    ]
+  },
+  "overallRecommendations": [
+    "Gate anchor_audit behind an AuditorCap capability (or an on-chain auditor allow-list) so only the trusted auditing service can write records.",
+    "Fix the duplicate-key behavior: either support authorized overwrite/upsert via table::contains + remove/borrow, or version keys by (contract_hash, version); without this, records cannot be corrected and key-squatting is possible.",
+    "Authenticate the off-chain AI result — bind (contract_hash, walrus_blob_id, overall_risk) with a service signature and a nonce/epoch to prevent forgery and replay.",
+    "Validate inputs: assert overall_risk <= 4 and enforce expected lengths for contract_hash and walrus_blob_id, using named error constants.",
+    "Store the auditor/model identity explicitly and consider emitting it so downstream consumers can scope their trust in a given record."
   ]
 }

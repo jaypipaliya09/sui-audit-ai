@@ -152,33 +152,49 @@ export function ReportViewer({ audit }: ReportViewerProps) {
       {/* Badge embed */}
       {audit.blobId && (
         <div className="rounded-lg surface p-5 animate-fadeInUp" style={{ animationDelay: '0.2s' }}>
-          <h2 className="text-sm font-medium text-white mb-2 flex items-center gap-2">
-            <Code className="w-4 h-4 text-blue-400" />
-            Embeddable Badge
-          </h2>
-          <p className="text-xs text-zinc-500 mb-3">
-            Add this badge to your README to display your audit status.
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-medium text-white flex items-center gap-2">
+              <Code className="w-4 h-4 text-blue-400" />
+              Embeddable Badge
+            </h2>
+            <span className="text-[11px] text-zinc-600 bg-zinc-800/60 px-2 py-0.5 rounded-full border border-zinc-700/50">
+              README ready
+            </span>
+          </div>
+          <p className="text-xs text-zinc-500 mb-4">
+            Drop this into your GitHub README to show your contract's audit status.
           </p>
-          <div className="flex flex-col sm:flex-row items-center gap-3">
-            <div className="shrink-0 bg-zinc-900 p-3 rounded-lg border border-zinc-800 flex items-center justify-center">
-              <img
-                src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/badge/${audit.blobId}`}
-                alt="SuiAudit AI Status"
-                className="h-5"
-              />
-            </div>
-            <div className="flex-1 relative group w-full">
-              <pre className="bg-zinc-900 border border-zinc-800 p-2.5 rounded-md text-[11px] font-mono text-zinc-400 overflow-x-auto">
-                [![MoveAuditor]({process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/badge/{audit.blobId})]({currentUrl})
-              </pre>
+
+          {/* Preview row */}
+          <div className="flex items-center gap-3 mb-4 p-3 rounded-lg bg-zinc-900/60 border border-zinc-800">
+            <span className="text-[11px] text-zinc-600 shrink-0">Preview</span>
+            <div className="h-px flex-1 bg-zinc-800" />
+            <img
+              src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/badge/${audit.blobId}`}
+              alt="SuiAudit AI Status"
+              className="h-5 shrink-0"
+            />
+          </div>
+
+          {/* Markdown snippet */}
+          <div className="relative rounded-lg border border-zinc-800 bg-zinc-950 overflow-hidden">
+            <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-800/60 bg-zinc-900/40">
+              <span className="text-[10px] font-medium text-zinc-600 uppercase tracking-wider">Markdown</span>
               <button
                 onClick={handleCopyBadge}
-                className="absolute top-1.5 right-1.5 p-1.5 bg-zinc-800 text-zinc-500 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:text-white"
-                title="Copy Markdown"
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                  badgeCopied
+                    ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
+                    : 'bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700 border border-zinc-700'
+                }`}
               >
-                {badgeCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                {badgeCopied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                {badgeCopied ? 'Copied!' : 'Copy'}
               </button>
             </div>
+            <pre className="px-4 py-3 text-[11px] font-mono text-zinc-400 overflow-x-auto whitespace-pre-wrap break-all leading-relaxed">
+              {`[![MoveAuditor](${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/badge/${audit.blobId})](${currentUrl})`}
+            </pre>
           </div>
         </div>
       )}

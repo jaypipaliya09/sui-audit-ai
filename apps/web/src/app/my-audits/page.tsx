@@ -102,6 +102,10 @@ export default function MyAuditsPage() {
       .catch(() => setCliRuns([]));
   }, [address]);
 
+  // Flatten CLI runs to their per-file audits so they count alongside the
+  // direct-UI and repo-link audits in the stats bar.
+  const cliFiles: CliRunFile[] = cliRuns.flatMap((run) => run.files);
+
   const toggleSelection = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     setSelectedIds((prev) => {
@@ -194,12 +198,22 @@ export default function MyAuditsPage() {
           </div>
         </div>
 
-        {/* Stats bar */}
+        {/* Stats bar — counts every audit type: direct UI, repo link, and CLI runs. */}
         <div className="grid grid-cols-3 gap-4 mb-8">
           {[
-            { label: 'Total Audits', value: myAudits.length },
-            { label: 'Completed', value: myAudits.filter((a) => a.blobId).length },
-            { label: 'Critical Found', value: myAudits.filter((a) => a.overallRisk === 'CRITICAL').length },
+            { label: 'Total Audits', value: myAudits.length + cliFiles.length },
+            {
+              label: 'Completed',
+              value:
+                myAudits.filter((a) => a.blobId).length +
+                cliFiles.filter((f) => f.blobId).length,
+            },
+            {
+              label: 'Critical Found',
+              value:
+                myAudits.filter((a) => a.overallRisk === 'CRITICAL').length +
+                cliFiles.filter((f) => (f.overallRisk || '').toUpperCase() === 'CRITICAL').length,
+            },
           ].map((stat) => (
             <div key={stat.label} className="p-4 rounded-xl border border-[#21262d] bg-[#161b22] text-center">
               <div className="text-2xl font-black text-white">{stat.value}</div>

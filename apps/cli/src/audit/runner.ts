@@ -4,6 +4,7 @@ import { join, basename } from 'path';
 import { ClaudeCliService, AuditResult } from '../auditor/claude-cli.service';
 import { GroqReportService } from '../report/groq.service';
 import { reportFileName } from '../scan/scanner';
+import { Track } from './tracks';
 
 export interface FileAuditResult {
   file: string;
@@ -34,6 +35,7 @@ export class AuditRunner {
     outputDir: string,
     walletAddress: string,
     totalCostSui: number,
+    track?: Track,
   ): Promise<RunSummary> {
     if (!existsSync(outputDir)) mkdirSync(outputDir, { recursive: true });
 
@@ -44,7 +46,7 @@ export class AuditRunner {
       console.log(chalk.bold(`\n[${i + 1}/${files.length}] ${basename(file)}`));
 
       console.log(chalk.blue('  • Auditing with Claude...'));
-      const audit = await this.claude.auditContract(file);
+      const audit = await this.claude.auditContract(file, track);
 
       console.log(chalk.blue('  • Generating report with Groq...'));
       const markdown = await this.groq.generateMarkdownReport(audit);

@@ -1,14 +1,7 @@
 'use client';
 
 import React from 'react';
-
-const TRACKS = [
-  { id: 'institutions', label: 'Institutions', emoji: '🏦', description: 'Banking & financial institutions' },
-  { id: 'ai', label: 'AI', emoji: '🤖', description: 'AI & machine learning projects' },
-  { id: 'defi', label: 'DeFi', emoji: '💰', description: 'Decentralized finance protocols' },
-  { id: 'gaming', label: 'Gaming', emoji: '🎮', description: 'Gaming & metaverse' },
-  { id: 'payments', label: 'Payments', emoji: '💳', description: 'Payment solutions' },
-];
+import { TRACKS } from '@/lib/tracks';
 
 interface ProjectTrackSelectorProps {
   selected: string | null;

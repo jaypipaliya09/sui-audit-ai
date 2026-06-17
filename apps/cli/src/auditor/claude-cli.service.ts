@@ -1,6 +1,7 @@
 import { spawn } from 'child_process';
 import { readFileSync } from 'fs';
 import chalk from 'chalk';
+import { Track } from '../audit/tracks';
 
 /** Run the Claude CLI passing the prompt via argv (no shell interpolation). */
 function runClaude(prompt: string): Promise<string> {
@@ -58,7 +59,7 @@ export class ClaudeCliService {
   /**
    * Reads a file and uses the local Claude Code CLI to analyze it.
    */
-  async auditContract(filePath: string): Promise<AuditResult> {
+  async auditContract(filePath: string, track?: Track): Promise<AuditResult> {
     console.log(chalk.blue(`Reading contract from ${filePath}...`));
     
     let fileContent: string;
@@ -70,9 +71,13 @@ export class ClaudeCliService {
 
     const lineCount = fileContent.split('\n').length;
 
+    const trackContext = track
+      ? `\nProject track: ${track.title} — ${track.description}.\nTrack-specific focus: ${track.focus}\n`
+      : '';
+
     const prompt = `You are an expert security auditor for Sui Move smart contracts.
 Audit the following code thoroughly (access control, asset safety, arithmetic, DoS, logic flaws, gas).
-IMPORTANT: Your response MUST be ONLY valid JSON with no markdown formatting around it.
+${trackContext}IMPORTANT: Your response MUST be ONLY valid JSON with no markdown formatting around it.
 No conversational filler. Do not include \`\`\`json or \`\`\`.
 
 The JSON MUST match this structure exactly:

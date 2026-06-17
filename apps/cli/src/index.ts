@@ -3,13 +3,14 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import prompts from 'prompts';
 import { join } from 'path';
-import { writeFileSync, existsSync } from 'fs';
+import { writeFileSync, existsSync, appendFileSync } from 'fs';
 
 import { ClaudeCliService } from './auditor/claude-cli.service';
 import { GroqReportService } from './report/groq.service';
 import { SlushWalletService } from './wallet/slush.service';
 import { planForFile, planForCodebase, AuditPlan } from './scan/scanner';
 import { AuditRunner, RunSummary } from './audit/runner';
+import { TRACKS, Track } from './audit/tracks';
 import { PaymentService, HoldId } from './payment/payment.service';
 import { EscrowPaymentService } from './payment/escrow.service';
 import { MockPaymentService } from './payment/mock.service';
@@ -72,6 +73,25 @@ async function connectWallet(): Promise<{ address: string; balanceSui: number }>
   return { address: wallet.address, balanceSui: wallet.balanceSui };
 }
 
+/** Step 1b: pick the project track so the audit is focused (and cheaper). */
+async function selectTrack(): Promise<Track> {
+  const { track } = await prompts({
+    type: 'select',
+    name: 'track',
+    message: 'Which track does this project belong to?',
+    hint: 'Focuses the audit on the risks that matter for this kind of project',
+    choices: TRACKS.map((t) => ({
+      title: t.title,
+      description: t.description,
+      value: t.value,
+    })),
+  });
+  const selected = TRACKS.find((t) => t.value === track);
+  if (!selected) throw new Error('No track selected.');
+  console.log(chalk.green(`✓ Auditing for the ${selected.title} track.`));
+  return selected;
+}
+
 /** Step 2 + 3: choose scope and compute cost. */
 async function selectPlan(): Promise<AuditPlan> {
   const { scope } = await prompts({
@@ -108,8 +128,18 @@ async function selectPlan(): Promise<AuditPlan> {
   return plan;
 }
 
+interface UploadedFile {
+  file: string;
+  blobId?: string;
+  walrusUrl?: string;
+}
+interface UploadedRun {
+  id: string | null;
+  files: UploadedFile[];
+}
+
 /** Upload the run to the backend so it shows in the per-user report UI. */
-async function uploadRun(summary: RunSummary): Promise<string | null> {
+async function uploadRun(summary: RunSummary): Promise<UploadedRun | null> {
   if (!BACKEND_URL) return null;
   try {
     const res = await fetch(`${BACKEND_URL.replace(/\/$/, '')}/audit-runs`, {
@@ -127,12 +157,52 @@ async function uploadRun(summary: RunSummary): Promise<string | null> {
         })),
       }),
     });
-    const data = (await res.json().catch(() => ({}))) as { id?: string };
+    const data = (await res.json().catch(() => ({}))) as {
+      id?: string;
+      files?: UploadedFile[];
+    };
     console.log(chalk.green('✓ Reports uploaded.'));
-    return data.id ?? null;
+    return { id: data.id ?? null, files: data.files ?? [] };
   } catch (error) {
     console.warn(chalk.yellow(`Could not upload reports: ${(error as Error).message}`));
     return null;
+  }
+}
+
+/**
+ * The backend stores each report as a permanent PDF on Walrus and returns its
+ * public URL. Append that link to the local Markdown report (and print it) so
+ * every audit report carries its on-chain, tamper-proof copy.
+ */
+function attachWalrusLinks(summary: RunSummary, uploaded: UploadedRun | null): void {
+  if (!uploaded || uploaded.files.length === 0) return;
+
+  const byFile = new Map(uploaded.files.map((f) => [f.file, f]));
+  const linked: { file: string; url: string }[] = [];
+
+  for (const result of summary.files) {
+    const match = byFile.get(result.file);
+    if (!match?.walrusUrl) continue;
+    try {
+      const footer =
+        `\n\n---\n\n## 🌊 Stored on Walrus\n\n` +
+        `This report is permanently stored on Walrus (decentralized storage):\n\n` +
+        `- **Report:** [${match.walrusUrl}](${match.walrusUrl})\n` +
+        (match.blobId ? `- **Blob ID:** \`${match.blobId}\`\n` : '');
+      appendFileSync(result.reportPath, footer, 'utf-8');
+      linked.push({ file: result.file, url: match.walrusUrl });
+    } catch (error) {
+      console.warn(
+        chalk.yellow(`Could not attach Walrus link to ${result.reportPath}: ${(error as Error).message}`),
+      );
+    }
+  }
+
+  if (linked.length > 0) {
+    console.log(chalk.cyan('\n🌊 Reports stored permanently on Walrus:'));
+    linked.forEach(({ file, url }) =>
+      console.log(chalk.cyan(`   • ${file}\n     ${url}`)),
+    );
   }
 }
 
@@ -140,6 +210,7 @@ async function runWizard(): Promise<void> {
   console.log(chalk.green('\n=== Move Auditor ===\n'));
 
   const { address: walletAddress, balanceSui } = await connectWallet();
+  const track = await selectTrack();
   const plan = await selectPlan();
 
   // Cost summary
@@ -212,6 +283,7 @@ async function runWizard(): Promise<void> {
       outputDir,
       walletAddress,
       plan.totalCostSui,
+      track,
     );
 
     // Step: deposit on success
@@ -221,7 +293,8 @@ async function runWizard(): Promise<void> {
     clearPendingHold(hold);
     console.log(chalk.green(`✓ Deposited ${hold.amountSui} SUI.`));
 
-    await uploadRun(summary);
+    const uploaded = await uploadRun(summary);
+    attachWalrusLinks(summary, uploaded);
 
     console.log(chalk.green(`\n✓ Done. Reports saved to ${outputDir}`));
     if (BACKEND_URL) {

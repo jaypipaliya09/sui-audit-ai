@@ -9,6 +9,7 @@ import {
   AlertTriangle, ChevronRight, Loader2, GitBranch, Search, Play, AlertCircle,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { TRACKS } from '@/lib/tracks';
 import { ContractEditor } from '@/components/ContractEditor';
 import { AuditMethodSelector } from '@/components/AuditMethodSelector';
 import { RiskBadge } from '@/components/RiskBadge';
@@ -48,13 +49,6 @@ const VULN_CATEGORIES = [
   'Missing Validation', 'General',
 ];
 
-const TRACKS = [
-  { id: 'DEFI', name: 'DeFi & AMM' },
-  { id: 'GAMING', name: 'Gaming & NFTs' },
-  { id: 'AI', name: 'AI & Inference' },
-  { id: 'PAYMENTS', name: 'Payments' },
-  { id: 'INSTITUTIONS_CAPITAL_MARKETS', name: 'Institutions' },
-];
 
 /* ─── Repo Audit Inline ───────────────────────────────────────────── */
 function RepoAuditInline() {
@@ -63,7 +57,7 @@ function RepoAuditInline() {
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<any>(null);
   const [scanError, setScanError] = useState('');
-  const [projectTrack, setProjectTrack] = useState('DEFI');
+  const [projectTrack, setProjectTrack] = useState('AI');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
@@ -166,7 +160,7 @@ function RepoAuditInline() {
                       ? 'bg-indigo-500/8 border-indigo-500/20 text-indigo-300'
                       : 'border-zinc-800 text-zinc-500 hover:border-zinc-700'
                       }`}
-                  >{track.name}</button>
+                  >{track.label}</button>
                 ))}
               </div>
             </div>

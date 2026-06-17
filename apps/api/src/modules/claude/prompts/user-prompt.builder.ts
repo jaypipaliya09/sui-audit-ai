@@ -1,42 +1,67 @@
 /**
  * Track-specific context injected into the audit prompt when a projectTrack is specified.
+ * IDs match the CLI track values (uppercase).
  */
 const TRACK_CONTEXT: Record<string, string> = {
-  INSTITUTIONS_CAPITAL_MARKETS: `FOCUS AREAS for Institutional/Capital Markets track:
-- Compliance controls and regulatory event emissions
-- Multi-signature and governance patterns
-- Access control for privileged operations
-- Audit trail completeness and event emission coverage
-- KYC/AML related state management`,
+  AI: `FOCUS AREAS for AI track (AI agents, AI-powered dApps, decentralized AI applications):
+- Oracle/model-output trust boundaries and parameter integrity
+- Agent authority limits and spending caps
+- Prompt/parameter injection into on-chain actions
+- Replay of off-chain AI results
+- Reward manipulation vectors and training data poisoning`,
 
-  AI: `FOCUS AREAS for AI track:
-- Model update access control and parameter integrity
-- Reward manipulation vectors
-- Oracle/data feed validation
-- Weight/parameter overflow checks
-- Training data poisoning via on-chain state`,
-
-  DEFI: `FOCUS AREAS for DeFi track:
-- Flash loan attack vectors
+  DEFI: `FOCUS AREAS for DeFi track (DEX, lending, staking, yield, liquidity, trading):
+- Flash loan attack vectors and sandwich attacks
 - Oracle manipulation and price feed validation
 - Reentrancy and cross-function reentrancy
-- Integer overflow/underflow in financial calculations
-- Liquidity pool manipulation and sandwich attacks
-- Slippage and frontrunning protection`,
+- Integer overflow/underflow and rounding/precision loss in financial calculations
+- Share-inflation, slippage, and frontrunning protection
+- Liquidation and collateral accounting correctness`,
 
-  GAMING: `FOCUS AREAS for Gaming track:
-- Randomness manipulation and predictability
-- NFT metadata integrity and unauthorized modifications
-- Marketplace fee bypass vectors
-- Game state manipulation
-- Reward/loot distribution fairness`,
+  INFRA: `FOCUS AREAS for Infrastructure & Tooling track (SDKs, developer tools, analytics):
+- API/capability surface and privilege escalation through tooling
+- Input validation and safe defaults for downstream developers
+- Unauthorized access to admin or configuration functions
+- Dependency and upgrade path security`,
 
-  PAYMENTS: `FOCUS AREAS for Payments track:
-- Double-spend prevention
-- Integer overflow in payment calculations
+  CRYPTO: `FOCUS AREAS for Cryptography track (ZK, privacy, advanced cryptographic applications):
+- Proof verification correctness and soundness
+- Nonce/randomness handling and uniqueness
+- Signature replay and malleability
+- Commitment and nullifier scheme integrity
+- Side-channel leaks of private inputs`,
+
+  PAYMENTS: `FOCUS AREAS for Payments & Wallets track (wallet infrastructure, payments, merchant solutions):
+- Double-spend and replay protection
+- Integer overflow in payment and fee calculations
 - Recipient validation and address verification
-- Fee calculation accuracy
-- Payment routing and escrow security`,
+- Escrow and settlement correctness
+- Key/auth handling and custody risks`,
+
+  ENTERTAINMENT: `FOCUS AREAS for Entertainment & Culture track (gaming, NFTs, media, creator economy):
+- Randomness fairness and predictability exploits
+- NFT mint authority, ownership, and royalty logic
+- Marketplace escrow and fee bypass vectors
+- Game state manipulation and reward distribution fairness
+- Creator economy economic exploits`,
+
+  STORAGE: `FOCUS AREAS for Programmable Storage track (Sui + Walrus storage applications):
+- Blob/object reference integrity and on-chain pointer consistency
+- Access control on stored data
+- Storage-cost griefing and denial-of-service
+- Consistency between on-chain state and off-chain Walrus data`,
+
+  EXPLORATIONS: `FOCUS AREAS for Explorations track (RWA, DePIN, multi-chain, experimental):
+- Bridge and cross-chain message trust and replay
+- Real-world-asset tokenization and redemption invariants
+- Oracle and attestation trust for off-chain data
+- Multi-chain state consistency risks`,
+
+  DEGEN: `FOCUS AREAS for Degen track (memecoins, viral consumer apps, community products):
+- Rug-pull vectors: mint authority, hidden admin powers, freeze/blacklist capabilities
+- Liquidity lock bypass and honeypot transfer restrictions
+- Tax/fee manipulation and hidden exit mechanics
+- Privileged wallet concentration risks`,
 };
 
 /**

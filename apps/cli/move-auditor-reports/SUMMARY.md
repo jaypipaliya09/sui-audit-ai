@@ -6,4 +6,4 @@
 
 | File | Risk | Findings | Report |
 | --- | --- | --- | --- |
-| audit_escrow.move | HIGH | 4 | audit_escrow.audit.md |
+| audit_registry.move | HIGH | 6 | audit_registry.audit.md |

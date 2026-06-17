@@ -1,35 +1,54 @@
 # Executive Summary
-This module implements a shared escrow object that holds a payer's Coin<T> for an audit job, with capture (pay treasury) and refund (return to payer) paths. The arithmetic and asset-handling are sound — funds are stored in a Balance, fully transferred, and the object is consumed on settlement, so there is no double-spend or fund-locking. However, the trust model is fundamentally broken: because the payer can unilaterally call refund at any time, the authority/treasury has no guarantee of ever being paid, defeating the core purpose of the escrow. Secondary issues include an unused status field, redundant stored amount, and missing validation of the authority address.
+The AuditEscrow contract is a generic shared-object escrow designed to hold a payer's funds for an audit job, settled via capture() or refund(). While the cryptographic mechanics are sound, the trust model is broken, allowing the payer to unilaterally refund at any time. The contract lacks on-chain binding to an actual audit result, and settlement is decided entirely off-chain. No fund-loss-to-third-party or overflow bugs were found.
 
 # Overall Risk Assessment
-The overall risk of this contract is **HIGH** due to the broken trust model, which allows a malicious payer to lock funds, obtain the audit deliverable, and then call refund to take the money back, leaving the authority/treasury unpaid.
+The overall risk assessment of the contract is **MEDIUM**. The contract's design flaws and lack of input validation pose significant risks, including the ability of the payer to unilaterally refund funds and the potential for replay attacks.
 
 # Detailed Findings
 ## High Severity
-* **FIND-001: Payer can unilaterally refund, defeating the escrow guarantee**
-	+ Description: Both capture (funds -> authority) and refund (funds -> payer) are callable by either the payer or the authority. Since the escrow is a shared object and refund is permanently available to the payer, the payer can reclaim the funds at any moment — including after the audit service has already been rendered but before the authority captures.
-	+ Impact: A malicious payer can lock funds, obtain the audit deliverable, and then call refund to take the money back, leaving the authority/treasury unpaid.
-	+ Recommendation: Make the two paths exclusively authorized: only the authority should be able to capture, and refunds should be gated by a condition that protects the authority (e.g., a time-lock/deadline after which the payer may reclaim, or an authority-signed refund).
+### FIND-001: Payer can unilaterally refund, defeating the payment guarantee (capture/refund race)
+* **Category:** ASSET_SAFETY
+* **Location:** move_auditor::escrow, refund (Lines 105-119), capture (Lines 84-96)
+* **Description:** The payer can unilaterally refund funds at any time, defeating the payment guarantee. The contract's design allows for a capture/refund race, where the payer can submit a refund transaction before the authority can capture the funds.
+* **Impact:** The authority can never rely on being paid, and the contract provides no real guarantee of payment to the service provider.
+* **Recommendation:** Enforce an asymmetric, condition-gated settlement, where only the authority can capture funds, and refund is only permitted after a timeout/deadline or when the authority has not captured.
+
+## Medium Severity
+### FIND-002: Settlement is fully off-chain-trusted with no binding to the audit job or result (replay/spoofing of AI outcome)
+* **Category:** LOGIC
+* **Location:** move_auditor::escrow, capture (Lines 84-96), lock (Lines 60-82)
+* **Description:** The contract lacks on-chain binding to an actual audit result, allowing for replay attacks and spoofing of AI outcomes.
+* **Impact:** The trust boundary between the off-chain AI result and the on-chain action is unguarded, enabling disputes to be unresolvable on-chain.
+* **Recommendation:** Record an immutable job_id / result_hash in the escrow at lock() time and require a matching signed attestation at capture()/refund().
 
 ## Low Severity
-* **FIND-002: The status field is set but never read**
-	+ Description: The struct carries a status: u8 field initialized to STATUS_LOCKED, and STATUS_LOCKED is the only status constant defined. It is destructured and discarded (status: _) in both capture and refund and is never checked or transitioned.
-	+ Impact: Misleading code: a reader may assume status enforces a state machine (e.g., preventing double settlement) when it does not.
-	+ Recommendation: Remove the status field and STATUS_LOCKED, or actually use status to enforce an explicit lifecycle if multiple settlement attempts on a non-consumed object ever become possible.
-* **FIND-003: No validation of the authority address (zero address burns funds)**
-	+ Description: lock accepts an arbitrary authority: address with no validation. If authority is set to @0x0 (or any address the payer cannot control), a later capture transfers the entire balance there irrecoverably.
-	+ Impact: Funds can be permanently lost if the authority is misconfigured to the zero address or an unintended recipient.
-	+ Recommendation: Validate authority (e.g., assert it is non-zero and, depending on the design, differs from the payer).
+### FIND-003: status field is set but never validated (dead state machine)
+* **Category:** LOGIC
+* **Location:** move_auditor::escrow, capture/refund (Lines 30, 78, 90, 111)
+* **Description:** The status field is set but never validated, giving a false impression of state-machine protection.
+* **Impact:** No direct exploit, but the unused field is misleading and wastes storage gas.
+* **Recommendation:** Remove the status field entirely or implement a real state machine with explicit CAPTURED/REFUNDED states and assertions.
+
+### FIND-004: lock() performs no validation of amount or authority
+* **Category:** LOGIC
+* **Location:** move_auditor::escrow, lock (Lines 63-82)
+* **Description:** lock() accepts a Coin<T> of any value and an arbitrary authority address with no checks.
+* **Impact:** Enables creation of meaningless/zero escrows and footgun configurations.
+* **Recommendation:** Add assertions: amount > 0, authority != @0x0, and authority != payer as appropriate.
 
 ## Informational
-* **FIND-004: Redundant amount field can drift from the actual balance**
-	+ Description: The struct stores amount: u64 separately from funds: Balance<T>, and amount() returns balance::value(&escrow.funds) rather than the stored amount field.
-	+ Impact: Extra storage/gas with no functional benefit, and a latent inconsistency risk if partial-withdrawal logic is ever added.
-	+ Recommendation: Drop the stored amount field and derive the value from balance::value(&funds) wherever needed.
+### FIND-005: Redundant cached amount field duplicates the live balance
+* **Category:** GAS
+* **Location:** move_auditor::escrow, struct AuditEscrow (Lines 23-28, 117-120)
+* **Description:** The cached amount field duplicates the live balance, making it redundant and wasting storage gas.
+* **Impact:** Minor extra storage gas per escrow and a latent inconsistency risk.
+* **Recommendation:** Drop the cached amount field and derive amount from balance::value where needed.
 
 # Recommendations and Next Steps
-1. **Fix the core trust model**: Do not let the payer unilaterally refund an active escrow. Gate refunds behind a deadline/time-lock or an authority-issued cancellation, and restrict capture to the authority, so the audit outcome — not transaction ordering — determines settlement.
-2. **Validate the authority address**: Validate the authority address at lock time to prevent funds being captured to the zero or an unintended address.
-3. **Remove dead/duplicated state**: Remove the unused status field and the redundant amount field.
-4. **Add unit and adversarial tests**: Add unit and adversarial tests covering capture-vs-refund races, settlement by each authorized party, and rejection of unauthorized callers (ENotAuthorized).
-5. **Document and enforce trust assumptions**: Document and enforce the intended trust assumptions between payer and authority on-chain rather than relying on off-chain CLI behavior.
+To address the identified issues, the following steps are recommended:
+1. Fix the settlement trust model by making capture/refund asymmetric and condition/deadline-gated.
+2. Bind each escrow to a unique audit job id and a result attestation, with a nonce to prevent replay attacks.
+3. Introduce a real state machine with explicit CAPTURED/REFUNDED states and assertions, or remove the misleading status field.
+4. Add input validation in lock(): amount > 0, authority != @0x0, and authority != payer as appropriate.
+5. Remove redundant cached fields to reduce storage gas and eliminate latent inconsistency.
+By addressing these issues, the contract can be made more secure, reliable, and efficient.

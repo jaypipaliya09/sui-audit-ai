@@ -89,89 +89,77 @@ export class MetricsService {
     const [
       totalUsers,
       paidSubscriptions,
-      totalAudits,
-      auditsToday,
-      auditsThisMonth,
-      failedAuditsToday,
-      queueDepth,
-      claudeToday,
-      claudeMonth,
-      avgLatency,
-      findingsAgg,
-      criticalFindings,
-      totalAuditsWithBlob,
-      totalAuditsToday,
+      // Direct-UI (Audit table)
+      uiTotal, uiToday, uiThisMonth, uiFailedToday, uiWithBlobToday, uiFinishedToday,
+      uiCriticalMonth, uiAvgFindings, queueDepth,
+      // Repo-link (RepoAudit table)
+      repoTotal, repoToday, repoThisMonth, repoFailedToday, repoWithBlobToday, repoFinishedToday,
+      repoCriticalMonth,
+      // CLI (AuditRunFile table — each file is one audited contract)
+      cliTotal, cliToday, cliThisMonth, cliCriticalMonth, cliWithBlobToday, cliFinishedToday,
+      // Cost / latency (unchanged — from claudeCallLog)
+      claudeToday, claudeMonth, avgLatency,
     ] = await Promise.all([
-      // Total registered users
       this.prisma.user.count(),
-      // Active paid subscriptions
-      this.prisma.subscription.count({
-        where: { plan: { not: 'FREE' }, status: 'ACTIVE' },
-      }),
-      // Total audits all-time
+      this.prisma.subscription.count({ where: { plan: { not: 'FREE' }, status: 'ACTIVE' } }),
+
+      // ── Direct UI ──
       this.prisma.audit.count(),
-      // Audits today
-      this.prisma.audit.count({
-        where: { createdAt: { gte: todayStart } },
-      }),
-      // Audits this month
-      this.prisma.audit.count({
-        where: { createdAt: { gte: monthStart } },
-      }),
-      // Failed audits today
-      this.prisma.audit.count({
-        where: { createdAt: { gte: todayStart }, status: 'FAILED' },
-      }),
-      // Queue depth (QUEUED + ANALYZING)
-      this.prisma.audit.count({
-        where: { status: { in: ['QUEUED', 'ANALYZING'] } },
-      }),
-      // Claude cost today
-      this.prisma.claudeCallLog.aggregate({
-        _sum: { costUsd: true },
-        where: { createdAt: { gte: todayStart } },
-      }),
-      // Claude cost this month
-      this.prisma.claudeCallLog.aggregate({
-        _sum: { costUsd: true },
-        where: { createdAt: { gte: monthStart } },
-      }),
-      // Average latency this month
-      this.prisma.claudeCallLog.aggregate({
-        _avg: { latencyMs: true },
-        where: { createdAt: { gte: monthStart } },
-      }),
-      // Average findings per completed audit
-      this.prisma.audit.aggregate({
-        _avg: { criticalCount: true, highCount: true, mediumCount: true, lowCount: true },
-        where: { status: 'COMPLETE' },
-      }),
-      // Critical findings this month
-      this.prisma.audit.aggregate({
-        _sum: { criticalCount: true },
-        where: { createdAt: { gte: monthStart }, status: 'COMPLETE' },
-      }),
-      // Walrus success rate: completed audits with blobId today
-      this.prisma.audit.count({
-        where: { createdAt: { gte: todayStart }, blobId: { not: null }, status: 'COMPLETE' },
-      }),
-      // Total finished audits today (COMPLETE or FAILED)
-      this.prisma.audit.count({
-        where: { createdAt: { gte: todayStart }, status: { in: ['COMPLETE', 'FAILED'] } },
-      }),
+      this.prisma.audit.count({ where: { createdAt: { gte: todayStart } } }),
+      this.prisma.audit.count({ where: { createdAt: { gte: monthStart } } }),
+      this.prisma.audit.count({ where: { createdAt: { gte: todayStart }, status: 'FAILED' } }),
+      this.prisma.audit.count({ where: { createdAt: { gte: todayStart }, blobId: { not: null }, status: 'COMPLETE' } }),
+      this.prisma.audit.count({ where: { createdAt: { gte: todayStart }, status: { in: ['COMPLETE', 'FAILED'] } } }),
+      this.prisma.audit.aggregate({ _sum: { criticalCount: true }, where: { createdAt: { gte: monthStart }, status: 'COMPLETE' } }),
+      this.prisma.audit.aggregate({ _avg: { criticalCount: true, highCount: true, mediumCount: true, lowCount: true }, where: { status: 'COMPLETE' } }),
+      this.prisma.audit.count({ where: { status: { in: ['QUEUED', 'ANALYZING'] } } }),
+
+      // ── Repo-link ──
+      this.prisma.repoAudit.count(),
+      this.prisma.repoAudit.count({ where: { createdAt: { gte: todayStart } } }),
+      this.prisma.repoAudit.count({ where: { createdAt: { gte: monthStart } } }),
+      this.prisma.repoAudit.count({ where: { createdAt: { gte: todayStart }, status: 'FAILED' } }),
+      this.prisma.repoAudit.count({ where: { createdAt: { gte: todayStart }, blobId: { not: null }, status: 'COMPLETE' } }),
+      this.prisma.repoAudit.count({ where: { createdAt: { gte: todayStart }, status: { in: ['COMPLETE', 'FAILED'] } } }),
+      this.prisma.repoAudit.aggregate({ _sum: { criticalCount: true }, where: { createdAt: { gte: monthStart }, status: 'COMPLETE' } }),
+
+      // ── CLI (AuditRunFile, date filtered through its parent AuditRun) ──
+      this.prisma.auditRunFile.count(),
+      this.prisma.auditRunFile.count({ where: { run: { createdAt: { gte: todayStart } } } }),
+      this.prisma.auditRunFile.count({ where: { run: { createdAt: { gte: monthStart } } } }),
+      this.prisma.auditRunFile.count({ where: { overallRisk: 'CRITICAL', run: { createdAt: { gte: monthStart } } } }),
+      this.prisma.auditRunFile.count({ where: { blobId: { not: null }, run: { createdAt: { gte: todayStart } } } }),
+      this.prisma.auditRunFile.count({ where: { run: { createdAt: { gte: todayStart } } } }), // CLI files are always complete
+
+      // ── Cost / latency ──
+      this.prisma.claudeCallLog.aggregate({ _sum: { costUsd: true }, where: { createdAt: { gte: todayStart } } }),
+      this.prisma.claudeCallLog.aggregate({ _sum: { costUsd: true }, where: { createdAt: { gte: monthStart } } }),
+      this.prisma.claudeCallLog.aggregate({ _avg: { latencyMs: true }, where: { createdAt: { gte: monthStart } } }),
     ]);
+
+    const totalAudits = uiTotal + repoTotal + cliTotal;
+    const auditsToday = uiToday + repoToday + cliToday;
+    const auditsThisMonth = uiThisMonth + repoThisMonth + cliThisMonth;
+    const failedAuditsToday = uiFailedToday + repoFailedToday;
+    const totalWithBlobToday = uiWithBlobToday + repoWithBlobToday + cliWithBlobToday;
+    const totalFinishedToday = uiFinishedToday + repoFinishedToday + cliFinishedToday;
+
+    const criticalFindingsThisMonth =
+      (uiCriticalMonth._sum.criticalCount || 0) +
+      (repoCriticalMonth._sum.criticalCount || 0) +
+      cliCriticalMonth;
+
+    const avgFindings =
+      (uiAvgFindings._avg.criticalCount || 0) +
+      (uiAvgFindings._avg.highCount || 0) +
+      (uiAvgFindings._avg.mediumCount || 0) +
+      (uiAvgFindings._avg.lowCount || 0);
+
+    const walrusSuccessRateToday =
+      totalFinishedToday > 0 ? (totalWithBlobToday / totalFinishedToday) * 100 : 100;
 
     const claudeCostToday = claudeToday._sum.costUsd || 0;
     const claudeCostThisMonth = claudeMonth._sum.costUsd || 0;
-
-    const avgFindings =
-      (findingsAgg._avg.criticalCount || 0) +
-      (findingsAgg._avg.highCount || 0) +
-      (findingsAgg._avg.mediumCount || 0) +
-      (findingsAgg._avg.lowCount || 0);
-
-    const walrusSuccessRateToday =
-      totalAuditsToday > 0 ? (totalAuditsWithBlob / totalAuditsToday) * 100 : 100;
 
     return {
       totalUsers,
@@ -183,7 +171,7 @@ export class MetricsService {
       claudeCostToday: Math.round(claudeCostToday * 100) / 100,
       claudeCostThisMonth: Math.round(claudeCostThisMonth * 100) / 100,
       avgFindingsPerAudit: Math.round(avgFindings * 10) / 10,
-      criticalFindingsThisMonth: criticalFindings._sum.criticalCount || 0,
+      criticalFindingsThisMonth,
       queueDepth,
       failedAuditsToday,
       walrusSuccessRateToday: Math.round(walrusSuccessRateToday * 10) / 10,
@@ -216,35 +204,54 @@ export class MetricsService {
     const userWhere: any = { createdAt: { gte: windowStart, lte: windowEnd } };
     if (query.plan) userWhere.subscription = { plan: query.plan };
 
-    const [audits, users, findingsAgg, risks] = await Promise.all([
+    // Repo audits share date/status/risk filters; CLI runs only filter by date.
+    const repoWhere: any = { createdAt: { gte: windowStart, lte: windowEnd } };
+    if (query.status) repoWhere.status = query.status;
+    if (query.risk) repoWhere.overallRisk = query.risk;
+
+    const [audits, repoAudits, cliRuns, users, findingsAgg, repoFindingsAgg, risks, repoRisks] = await Promise.all([
       this.prisma.audit.findMany({ where: auditWhere, select: { createdAt: true } }),
+      this.prisma.repoAudit.findMany({ where: repoWhere, select: { createdAt: true } }),
+      this.prisma.auditRun.findMany({
+        where: { createdAt: { gte: windowStart, lte: windowEnd } },
+        select: { createdAt: true },
+      }),
       this.prisma.user.findMany({ where: userWhere, select: { createdAt: true } }),
       this.prisma.audit.aggregate({
         _sum: { criticalCount: true, highCount: true, mediumCount: true, lowCount: true, infoCount: true },
         where: completedWhere,
       }),
-      this.prisma.audit.groupBy({
-        by: ['overallRisk'],
-        _count: { _all: true },
-        where: riskWhere,
+      this.prisma.repoAudit.aggregate({
+        _sum: { criticalCount: true, highCount: true, mediumCount: true, lowCount: true, infoCount: true },
+        where: { ...repoWhere, status: 'COMPLETE' },
       }),
+      this.prisma.audit.groupBy({ by: ['overallRisk'], _count: { _all: true }, where: riskWhere }),
+      this.prisma.repoAudit.groupBy({ by: ['overallRisk'], _count: { _all: true }, where: { ...repoWhere, overallRisk: { not: null }, status: 'COMPLETE' } }),
     ]);
 
-    const auditsOverTime = this.bucketByPeriod(audits.map((a) => a.createdAt), windowStart, windowEnd, granularity);
+    const allAuditDates = [
+      ...audits.map((a) => a.createdAt),
+      ...repoAudits.map((a) => a.createdAt),
+      ...cliRuns.map((a) => a.createdAt),
+    ];
+    const auditsOverTime = this.bucketByPeriod(allAuditDates, windowStart, windowEnd, granularity);
     const newUsersOverTime = this.bucketByPeriod(users.map((u) => u.createdAt), windowStart, windowEnd, granularity);
 
     const findingsBySeverity = [
-      { severity: 'Critical', count: findingsAgg._sum.criticalCount || 0 },
-      { severity: 'High', count: findingsAgg._sum.highCount || 0 },
-      { severity: 'Medium', count: findingsAgg._sum.mediumCount || 0 },
-      { severity: 'Low', count: findingsAgg._sum.lowCount || 0 },
-      { severity: 'Info', count: findingsAgg._sum.infoCount || 0 },
+      { severity: 'Critical', count: (findingsAgg._sum.criticalCount || 0) + (repoFindingsAgg._sum.criticalCount || 0) },
+      { severity: 'High',     count: (findingsAgg._sum.highCount     || 0) + (repoFindingsAgg._sum.highCount     || 0) },
+      { severity: 'Medium',   count: (findingsAgg._sum.mediumCount   || 0) + (repoFindingsAgg._sum.mediumCount   || 0) },
+      { severity: 'Low',      count: (findingsAgg._sum.lowCount      || 0) + (repoFindingsAgg._sum.lowCount      || 0) },
+      { severity: 'Info',     count: (findingsAgg._sum.infoCount     || 0) + (repoFindingsAgg._sum.infoCount     || 0) },
     ];
 
-    const riskDistribution = risks.map((r) => ({
-      risk: r.overallRisk as string,
-      count: r._count._all,
-    }));
+    // Merge risk distributions from both UI and repo audits.
+    const riskMap = new Map<string, number>();
+    for (const r of [...risks, ...repoRisks]) {
+      const key = r.overallRisk as string;
+      riskMap.set(key, (riskMap.get(key) || 0) + r._count._all);
+    }
+    const riskDistribution = Array.from(riskMap.entries()).map(([risk, count]) => ({ risk, count }));
 
     return {
       granularity,

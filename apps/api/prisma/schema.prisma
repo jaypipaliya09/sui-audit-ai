@@ -163,11 +163,19 @@ model Subscription {
 }
 
 enum ProjectTrack {
+  // legacy values kept for existing rows
   INSTITUTIONS_CAPITAL_MARKETS
+  GAMING
+  // current 9-track set
   AI
   DEFI
-  GAMING
+  INFRA
+  CRYPTO
   PAYMENTS
+  ENTERTAINMENT
+  STORAGE
+  EXPLORATIONS
+  DEGEN
 }
 
 enum RepoAuditStatus {
