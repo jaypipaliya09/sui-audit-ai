@@ -1,103 +1,139 @@
 {
   "summary": {
-    "contractName": "move_auditor::escrow",
+    "contractName": "AuditEscrow",
     "moduleCount": 1,
     "lineCount": 121,
-    "overallRisk": "MEDIUM",
-    "executiveSummary": "AuditEscrow is a generic shared-object escrow holding a payer's funds for an audit job, settled via capture() (pay authority) or refund() (return payer). The cryptographic mechanics are sound (funds held as Balance, object consumed by value so no double-settlement), but the trust model is broken: the payer can unilaterally refund at any time, so the authority/treasury is never guaranteed payment, and settlement is decided entirely off-chain with no on-chain binding to an actual audit result. There is also a vestigial status field that is set but never enforced. No fund-loss-to-third-party or overflow bugs were found."
+    "overallRisk": "HIGH",
+    "executiveSummary": "The move_auditor::escrow module implements a single-job payment escrow for audit fees on Sui. Its fundamental security flaw is that the payer can unilaterally call refund() at any time—including after the audit completes—providing no binding payment guarantee to the authority. The status tracking system (STATUS_LOCKED) is entirely dead code: the field is set at creation but never read or validated, so the intended lifecycle is unenforced. Sui's object model prevents double-spend, but the absence of mutual-consent gates, time-locks, or proof-of-delivery checks means this contract cannot be safely used in a trust-minimized payment context."
   },
   "findings": [
     {
       "id": "FIND-001",
-      "title": "Payer can unilaterally refund, defeating the payment guarantee (capture/refund race)",
+      "title": "Payer Can Unilaterally Self-Refund — No Binding Payment Guarantee for Authority",
       "severity": "HIGH",
-      "category": "ASSET_SAFETY",
+      "category": "LOGIC",
       "location": {
         "module": "move_auditor::escrow",
         "function": "refund",
-        "lineHint": "Lines 105-119 (refund), 84-96 (capture)"
+        "lineHint": "Lines 97-113"
       },
-      "description": "Both capture() and refund() accept either the payer or the authority as caller, and neither checks any condition (such as a completed/failed audit result) before settling. Because the escrow is a shared object consumed by value, capture and refund are mutually exclusive and resolve by whichever transaction lands first. The payer always has the incentive and the unconditional ability to call refund() and pull their funds back, even after a successful audit has been delivered.",
-      "impact": "The authority (treasury) can never rely on being paid: after receiving the off-chain audit result the payer simply submits refund() and reclaims the funds, or front-runs/races the authority's capture(). The escrow provides no real guarantee of payment to the service provider — the core purpose of the contract is unenforced.",
-      "recommendation": "Enforce an asymmetric, condition-gated settlement. For example: only the authority may capture(), and refund() should only be permitted after a timeout/deadline or when the authority has not captured, or gate settlement on an attested audit-result/job-completion proof. Add a deadline field and an explicit state machine (LOCKED -> CAPTURED/REFUNDED) so the two paths cannot freely race.",
-      "codeSnippet": "assert!(sender == escrow.payer || sender == escrow.authority, ENotAuthorized); // identical guard on both capture and refund"
+      "description": "refund() permits either the payer OR the authority to trigger a refund with no preconditions. Because the payer is an authorized caller, they can invoke refund() at any point in the lifecycle—including immediately after the authority delivers the audit report. There is no time-lock, mutual-agreement gate, proof-of-delivery check, or state transition that prevents this. The escrow is therefore non-binding from the authority's perspective.",
+      "impact": "A payer can submit refund() the moment the audit report is delivered, retrieving their locked funds without paying the authority. The authority has no on-chain mechanism to prevent this. This renders the escrow ineffective for trust-minimized payment enforcement and enables systematic non-payment.",
+      "recommendation": "Remove the payer from the authorized callers of refund(). Only the authority should be able to initiate a refund (i.e., voluntarily waive payment). For dispute resolution, implement a multisig refund requiring both payer and authority signatures, or add a trusted arbiter address. A time-lock approach is also viable: after a delivery window expires without capture, a payer-initiated refund becomes callable.",
+      "codeSnippet": "assert!(sender == escrow.payer || sender == escrow.authority, ENotAuthorized);\n// payer can call refund() at any time — no proof-of-work or time gate"
     },
     {
       "id": "FIND-002",
-      "title": "Settlement is fully off-chain-trusted with no binding to the audit job or result (replay/spoofing of AI outcome)",
+      "title": "Race Condition — Payer Can Front-Run Authority's capture() with refund()",
+      "severity": "HIGH",
+      "category": "ACCESS_CONTROL",
+      "location": {
+        "module": "move_auditor::escrow",
+        "function": "capture / refund",
+        "lineHint": "Lines 83-113"
+      },
+      "description": "Both capture() and refund() are gated only by payer/authority address membership with no ordering constraint or mutual-exclusion mechanism beyond Sui's object consumption. A payer monitoring the network can observe the authority's capture() broadcast and submit a competing refund() in the same or earlier checkpoint. Sui does not guarantee transaction ordering within a checkpoint in favor of either party. Whichever transaction is sequenced first consumes the shared object; the other aborts with no recourse.",
+      "impact": "A payer acting in bad faith can race to refund after the authority broadcasts capture(), extracting funds and forcing the authority to absorb the full cost of completed audit work. This attack requires no special privilege beyond being the recorded payer and observing network activity.",
+      "recommendation": "Separate the authority's capture right from the payer's refund right with an explicit time-based or state-based ordering: e.g., only the authority may act during a primary window; the payer may refund only after a mandatory expiry epoch if the authority has not captured. This eliminates the competitive race.",
+      "codeSnippet": "// capture()\nassert!(sender == escrow.payer || sender == escrow.authority, ENotAuthorized);\n// refund()\nassert!(sender == escrow.payer || sender == escrow.authority, ENotAuthorized);\n// No epoch/ordering constraint prevents simultaneous competing calls"
+    },
+    {
+      "id": "FIND-003",
+      "title": "STATUS_LOCKED Constant and status Field Are Dead Code — Lifecycle Never Enforced",
       "severity": "MEDIUM",
       "category": "LOGIC",
       "location": {
         "module": "move_auditor::escrow",
-        "function": "capture",
-        "lineHint": "Lines 84-96, 60-82 (lock)"
+        "function": null,
+        "lineHint": "Lines 11, 27, 66, 91, 101"
       },
-      "description": "The escrow has no field tying it to a specific audit job, model output, nonce, or result attestation. capture() pays the authority and refund() pays the payer purely on the basis of who signs, with no on-chain evidence that the audit actually completed (success or failure). The off-chain AI/audit result is the sole authority for which path is taken, and nothing on-chain prevents the same off-chain result from being reused to justify settling multiple distinct escrows (replay of an off-chain decision).",
-      "impact": "Track-specific risk: the trust boundary between the off-chain AI result and the on-chain action is unguarded. The authority can capture funds without any proof the audit was performed; the payer can refund despite a delivered result; and a single off-chain approval can be replayed across escrows since none are bound to a unique job id. Disputes are unresolvable on-chain.",
-      "recommendation": "Record an immutable job_id / result_hash in the escrow at lock() time and require a matching signed attestation (or job-id check) at capture()/refund(). Emit and verify a per-job nonce so an off-chain authorization cannot be replayed against other escrows. Consider an arbiter or two-phase commit where the result hash is posted before settlement.",
-      "codeSnippet": "let AuditEscrow { id, payer: _, authority, funds, amount, status: _ } = escrow; // no job/result binding consulted"
-    },
-    {
-      "id": "FIND-003",
-      "title": "status field is set but never validated (dead state machine)",
-      "severity": "LOW",
-      "category": "LOGIC",
-      "location": {
-        "module": "move_auditor::escrow",
-        "function": "capture/refund",
-        "lineHint": "Lines 30, 78, 90, 111"
-      },
-      "description": "STATUS_LOCKED is the only status constant and the status field is written at lock() but is explicitly ignored (status: _) in both capture() and refund(). There is no LOCKED -> CAPTURED/REFUNDED transition and no assertion that the escrow is in an expected state. The field gives a false impression of state-machine protection that does not exist.",
-      "impact": "No direct exploit because the object is consumed by value (so it cannot be settled twice), but the unused field is misleading and would not catch a future code path that retains the object. It also wastes storage gas.",
-      "recommendation": "Either remove the status field entirely (the by-value consumption already prevents re-settlement) or implement and assert a real state machine, including the missing CAPTURED/REFUNDED constants.",
-      "codeSnippet": "status: STATUS_LOCKED, // written, then always destructured as status: _"
+      "description": "STATUS_LOCKED (value 0) is assigned to escrow.status at creation in lock(), but both capture() and refund() destructure the struct with status: _, discarding the field without reading it. No STATUS_CAPTURED or STATUS_REFUNDED variants exist. The entire status tracking system is inert—there is no state-machine enforcement anywhere in the module.",
+      "impact": "The dead status field gives a false impression of lifecycle enforcement to readers and integrators. Any off-chain indexer querying escrow.status to determine lifecycle phase will always observe LOCKED until the object is deleted. A future upgrade author who does not notice the field is always 0 may introduce incorrect state checks. The code comment documents a lifecycle that the code does not implement.",
+      "recommendation": "Either (a) delete the status field and STATUS_LOCKED constant entirely—object deletion via object::delete(id) is the idiomatic Sui terminal state and is sufficient—or (b) define STATUS_CAPTURED and STATUS_REFUNDED variants, assert status == STATUS_LOCKED at the top of both capture() and refund(), and update the field before deletion. Option (a) is simpler and preferred.",
+      "codeSnippet": "status: STATUS_LOCKED,  // set in lock()\n...\nlet AuditEscrow { id, payer: _, authority, funds, amount, status: _ } = escrow;  // discarded in capture() and refund()"
     },
     {
       "id": "FIND-004",
-      "title": "lock() performs no validation of amount or authority",
+      "title": "Authority Can Unilaterally Refund Completed Audits — Compromised Key Drains Revenue",
+      "severity": "MEDIUM",
+      "category": "LOGIC",
+      "location": {
+        "module": "move_auditor::escrow",
+        "function": "refund",
+        "lineHint": "Lines 97-113"
+      },
+      "description": "The authority is permitted to call refund(), returning funds to the payer. The code comment frames this as a convenience for Ctrl+C rollback, but a compromised, stolen, or buggy authority key can refund any open escrow at will, transferring all locked funds back to payers without payment. There is no minimum-hold period, delivery checkpoint, or confirmation step before the authority can issue a refund.",
+      "impact": "A compromised authority private key can drain all in-progress and completed escrows to their respective payers, causing total revenue loss for the service operator. Because the authority is a single address (not a multisig), the blast radius is unbounded across all concurrent escrow objects.",
+      "recommendation": "Document explicitly that the authority key has full refund power and must be protected with HSM or multisig key management. Architecturally, consider restricting authority-initiated refund to a specific time window (e.g., only within N epochs of lock) or requiring a reason code event so operators can audit unilateral refunds. Replacing the single authority address with a multisig is the strongest mitigation.",
+      "codeSnippet": "assert!(sender == escrow.payer || sender == escrow.authority, ENotAuthorized);\n// authority calling refund() returns payer's money — no guard against post-delivery refund"
+    },
+    {
+      "id": "FIND-005",
+      "title": "No Validation on authority Address — Zero Address Burns Funds, Self-Authority Bypasses Escrow",
+      "severity": "LOW",
+      "category": "ACCESS_CONTROL",
+      "location": {
+        "module": "move_auditor::escrow",
+        "function": "lock",
+        "lineHint": "Lines 57-79"
+      },
+      "description": "lock() accepts any address as authority with no validation. Two edge cases: (1) authority == @0x0 — capture() transfers funds to the zero address, which no one controls on Sui, effectively burning them permanently. (2) authority == payer — the payer becomes both parties; they can call both capture() and refund() unilaterally, making the escrow trivially escapable with no counterparty guarantee at all.",
+      "impact": "User error or a malicious CLI client supplying a bad authority address results in burned funds or a meaningless escrow. Depending on how the CLI constructs the authority address (e.g., from a config file that could be tampered), this could be exploited in a supply-chain attack against the payer.",
+      "recommendation": "Add to lock(): assert!(authority != @0x0, EInvalidAuthority); assert!(authority != tx_context::sender(ctx), EInvalidAuthority); The EscrowLocked event already emits the authority address, providing a secondary off-chain validation point.",
+      "codeSnippet": "public entry fun lock<T>(\n    payment: Coin<T>,\n    authority: address,  // no @0x0 check, no authority != payer check\n    ctx: &mut TxContext\n)"
+    },
+    {
+      "id": "FIND-006",
+      "title": "Redundant amount Field — Events Emit Stale Lock-Time Value Instead of Actual Balance",
       "severity": "LOW",
       "category": "LOGIC",
       "location": {
         "module": "move_auditor::escrow",
-        "function": "lock",
-        "lineHint": "Lines 63-82"
+        "function": "capture / refund",
+        "lineHint": "Lines 27, 64, 93, 104"
       },
-      "description": "lock() accepts a Coin<T> of any value (including zero) and an arbitrary authority address with no checks (e.g. authority != payer, authority != @0x0, amount > 0). A zero-value escrow can be created, and the authority can be set to the zero address or to the payer themselves.",
-      "impact": "Low: enables creation of meaningless/zero escrows (minor spam) and footgun configurations such as authority == @0x0 (funds capturable only to the zero address) or authority == payer (no real escrow). Not a direct theft vector.",
-      "recommendation": "Add assertions: amount > 0, authority != @0x0, and (depending on intended semantics) authority != payer, with dedicated error codes.",
-      "codeSnippet": "let amount = coin::value(&payment); // no assert!(amount > 0); authority unchecked"
+      "description": "The amount field stores coin::value(&payment) at lock time. The public amount() helper correctly reads balance::value(&escrow.funds), but EscrowCaptured and EscrowRefunded events emit the stored amount field rather than the live balance at transfer time. If a future upgrade or composable extension modifies funds directly (possible in Sui's composable object model), events will report the original lock amount rather than the actual amount transferred, silently corrupting accounting records.",
+      "impact": "Low immediate risk under current code. In any future upgrade that adjusts the balance post-lock (e.g., fee deduction, partial release), downstream systems relying on event amounts for financial reconciliation will observe incorrect values with no on-chain indication of the discrepancy.",
+      "recommendation": "Remove the amount field from the struct. Compute the emission value from balance::value(&funds) at the point of destructuring, before coin::from_balance consumes it. This eliminates the redundancy and guarantees event accuracy regardless of future balance changes.",
+      "codeSnippet": "amount: u64,  // frozen at lock() time\n...\nevent::emit(EscrowCaptured { escrow_id, authority, amount });  // stale if balance diverged post-lock"
     },
     {
-      "id": "FIND-005",
-      "title": "Redundant cached amount field duplicates the live balance",
+      "id": "FIND-007",
+      "title": "Zero-Amount Escrow Creation Allowed — Storage Spam Vector",
       "severity": "INFO",
-      "category": "GAS",
+      "category": "OTHER",
       "location": {
         "module": "move_auditor::escrow",
-        "function": "struct AuditEscrow",
-        "lineHint": "Lines 23-28, 117-120"
+        "function": "lock",
+        "lineHint": "Lines 57-79"
       },
-      "description": "The struct stores both funds: Balance<T> and a cached amount: u64, while the amount() accessor reads balance::value(&funds) instead of the cached field. Since funds is never mutated after creation the two are always equal, making the cached amount and the unused status field pure storage overhead.",
-      "impact": "Minor extra storage gas per escrow and a latent inconsistency risk if partial-withdrawal logic is ever added without updating amount.",
-      "recommendation": "Drop the cached amount (and status) fields and derive amount from balance::value where needed, or document that they are immutable snapshots for event emission only.",
-      "codeSnippet": "amount: u64, // cached, while amount() reads balance::value(&escrow.funds)"
+      "description": "lock() does not assert that the payment amount exceeds zero. A zero-value Coin<T> is valid in Sui, so any caller can create unbounded spam escrow objects with no economic commitment, consuming shared object slots and emitting EscrowLocked events without meaningful payment.",
+      "impact": "Negligible per-object economic impact. At scale, zero-amount escrows could contribute to Sui state bloat, inflate event indexes, and confuse off-chain monitoring systems that parse EscrowLocked events to track payment volume.",
+      "recommendation": "Add: assert!(coin::value(&payment) > 0, EZeroAmount); at the top of lock(), with a corresponding error constant const EZeroAmount: u64 = 2;",
+      "codeSnippet": "let amount = coin::value(&payment);  // no minimum enforcement"
     }
   ],
   "gasAnalysis": {
     "expensivePatterns": [
-      "Shared object creation per escrow (transfer::share_object) incurs ongoing storage and consensus cost for every audit job.",
-      "Storing redundant amount and unused status fields adds per-object storage gas."
+      "Shared object model: transfer::share_object() makes AuditEscrow a shared object, requiring Sui consensus for every capture/refund transaction. Owned objects bypass consensus and use the cheaper fast-path. For high-frequency small-value audits this is a significant per-transaction overhead.",
+      "object::uid_to_inner(&id) is called after struct destructuring in both capture() and refund() — the UID is accessed after the struct is already being torn down, which is a minor but avoidable sequencing awkwardness.",
+      "Three separate event structs (EscrowLocked, EscrowCaptured, EscrowRefunded) with copy+drop, each emitted on state transitions — unavoidable but worth noting if batch audit flows are designed in future."
     ],
     "optimizationSuggestions": [
-      "Remove the unused status field and the redundant cached amount field to shrink object storage.",
-      "If escrows are short-lived single-settlement objects, consider whether an owned object (sent to authority/payer as an escrow holder) could replace a shared object to avoid consensus overhead, depending on the required signing flexibility."
+      "Switch from shared object to owned object: transfer the AuditEscrow to the authority address after lock(), so the authority holds it as an owned object. This enables Sui's owned-object fast-path (no consensus required for capture/refund) and significantly reduces per-transaction gas. The tradeoff is the payer loses direct on-chain access to the object, which aligns with removing payer-initiated refund anyway.",
+      "Remove the redundant amount field to save 8 bytes of on-chain storage per escrow object.",
+      "Remove the dead status field to save 1 byte of on-chain storage per escrow object.",
+      "If multiple concurrent audits per payer are common, a registry pattern (single shared BalanceTable keyed by escrow ID) reduces per-audit object creation overhead and consolidates shared object consensus into one object."
     ]
   },
   "overallRecommendations": [
-    "Fix the settlement trust model (FIND-001): make capture/refund asymmetric and condition/deadline-gated so the payer cannot unilaterally reclaim funds after a delivered audit and the two paths cannot freely race.",
-    "Bind each escrow to a unique audit job id and a result attestation, with a nonce to prevent replay of off-chain AI decisions across escrows (FIND-002).",
-    "Introduce a real state machine with explicit CAPTURED/REFUNDED states and assertions, or remove the misleading status field (FIND-003).",
-    "Add input validation in lock(): amount > 0, authority != @0x0, and authority != payer as appropriate (FIND-004).",
-    "Remove redundant cached fields to reduce storage gas and eliminate latent inconsistency (FIND-005)."
+    "Remove payer from refund() authorized callers immediately — this is the primary security failure. An escrow where the payer can self-refund at will provides no payment guarantee and can be systematically abused to avoid paying for completed work.",
+    "Implement a time-locked state machine: a LOCKED phase where only capture() is callable, followed by an optional DISPUTED/EXPIRED phase where payer-initiated refund is permitted only after a mandatory window (e.g., 7 epochs) with no authority action.",
+    "Replace the single authority address with a multisig or program-derived address to eliminate the single-point-of-key-compromise risk for authority-initiated refunds.",
+    "Validate authority address in lock(): reject @0x0 and authority == payer to prevent fund burning and trivially bypassable escrow creation.",
+    "Delete the status field and STATUS_LOCKED constant entirely — they are dead code creating false lifecycle assurances. Sui object deletion is the canonical terminal state.",
+    "Replace the stored amount field with live balance::value(&funds) reads at capture/refund time to guarantee event accuracy and eliminate the redundant storage slot.",
+    "Consider switching to an owned-object model (transfer to authority at lock time) to eliminate shared-object consensus overhead and enable Sui fast-path execution for all escrow operations.",
+    "Add assert!(coin::value(&payment) > 0, EZeroAmount) in lock() to prevent zero-value spam escrow creation."
   ]
 }

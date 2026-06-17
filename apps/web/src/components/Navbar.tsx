@@ -11,6 +11,7 @@ import { useAuth } from '@/lib/auth';
 const PUBLIC_LINKS = [
   { href: '/', label: 'Home' },
   { href: '/how-it-works', label: 'How It Works' },
+  { href: '/cli', label: 'CLI Guide' },
   { href: '/my-audits', label: 'My Audits' },
   { href: '/verify', label: 'Verify' },
 ];

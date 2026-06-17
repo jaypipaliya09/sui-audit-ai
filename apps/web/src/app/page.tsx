@@ -192,16 +192,39 @@ export default function Home() {
   const [auditsLoading, setAuditsLoading] = useState(true);
 
   useEffect(() => {
-    if (isConnected) {
-      const formatted = myAudits.slice(0, 6).map((a) => ({
-        id: a.auditId, blobId: a.blobId, contractName: a.contractName,
-        createdAt: a.createdAt, overallRisk: a.overallRisk || 'COMPLETE', status: 'COMPLETE',
-      }));
-      setRecentAudits(formatted);
-    } else {
+    if (!isConnected) {
       setRecentAudits([]);
+      setAuditsLoading(false);
+      return;
     }
-    setAuditsLoading(false);
+
+    const formatted = myAudits.slice(0, 6).map((a) => ({
+      id: a.auditId, blobId: a.blobId, contractName: a.contractName,
+      createdAt: a.createdAt, overallRisk: a.overallRisk || 'COMPLETE', status: 'COMPLETE',
+    }));
+    setRecentAudits(formatted);
+
+    // Enrich audits that are missing blobId / overallRisk by fetching from API
+    const missing = formatted.filter((a) => !a.blobId);
+    if (missing.length === 0) {
+      setAuditsLoading(false);
+      return;
+    }
+
+    Promise.all(
+      missing.map((a) => api.getAuditReport(a.id).catch(() => null))
+    ).then((results) => {
+      setRecentAudits((prev) =>
+        prev.map((audit) => {
+          const fetched = results.find((r: any) => r?.id === audit.id);
+          if (fetched?.blobId) {
+            return { ...audit, blobId: fetched.blobId, overallRisk: fetched.overallRisk || audit.overallRisk };
+          }
+          return audit;
+        })
+      );
+      setAuditsLoading(false);
+    });
   }, [isConnected, myAudits]);
 
   const handleSubmit = async () => {

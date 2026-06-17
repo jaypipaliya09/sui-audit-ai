@@ -32,6 +32,39 @@ interface ReportViewerProps {
   };
 }
 
+const BADGE_COLORS: Record<string, string> = {
+  CLEAN: '#16a34a',
+  LOW: '#84cc16',
+  MEDIUM: '#ca8a04',
+  HIGH: '#dc2626',
+  CRITICAL: '#7f1d1d',
+};
+
+function AuditBadge({ risk }: { risk: string }) {
+  const color = BADGE_COLORS[risk] ?? BADGE_COLORS.MEDIUM;
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="200" height="20" role="img" aria-label={`MoveAuditor: ${risk}`} className="shrink-0">
+      <title>MoveAuditor: {risk}</title>
+      <linearGradient id="badge-s" x2="0" y2="100%">
+        <stop offset="0" stopColor="#bbb" stopOpacity=".1" />
+        <stop offset="1" stopOpacity=".1" />
+      </linearGradient>
+      <clipPath id="badge-r">
+        <rect width="200" height="20" rx="3" fill="#fff" />
+      </clipPath>
+      <g clipPath="url(#badge-r)">
+        <rect width="120" height="20" fill="#555" />
+        <rect x="120" width="80" height="20" fill={color} />
+        <rect width="200" height="20" fill="url(#badge-s)" />
+      </g>
+      <g fill="#fff" textAnchor="middle" fontFamily="Courier New, monospace" fontSize="11" fontWeight="bold">
+        <text x="60" y="14">MoveAuditor</text>
+        <text x="160" y="14">{risk}</text>
+      </g>
+    </svg>
+  );
+}
+
 export function ReportViewer({ audit }: ReportViewerProps) {
   const { summaryJson: summary, findingsJson: findings } = audit;
   const isClean = audit.overallRisk === 'CLEAN';
@@ -169,11 +202,7 @@ export function ReportViewer({ audit }: ReportViewerProps) {
           <div className="flex items-center gap-3 mb-4 p-3 rounded-lg bg-zinc-900/60 border border-zinc-800">
             <span className="text-[11px] text-zinc-600 shrink-0">Preview</span>
             <div className="h-px flex-1 bg-zinc-800" />
-            <img
-              src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/badge/${audit.blobId}`}
-              alt="SuiAudit AI Status"
-              className="h-5 shrink-0"
-            />
+            <AuditBadge risk={audit.overallRisk} />
           </div>
 
           {/* Markdown snippet */}

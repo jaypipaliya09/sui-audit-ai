@@ -2,8 +2,6 @@ import { Transaction, coinWithBalance } from '@mysten/sui/transactions';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { getSuiClient } from '../sui/client';
 import {
-  ESCROW_PACKAGE_ID,
-  TREASURY_ADDRESS,
   SUI_COIN_TYPE,
   suiToBaseUnits,
 } from '../config';
@@ -23,14 +21,11 @@ const ESCROW_MODULE = 'escrow';
  * (TREASURY_SECRET_KEY, dev/operator on testnet) or finalized via the backend.
  */
 export class EscrowPaymentService implements PaymentService {
-  constructor(private readonly payer: Ed25519Keypair) {
-    if (!ESCROW_PACKAGE_ID) {
-      throw new Error('ESCROW_PACKAGE_ID is not set (deploy the contract first).');
-    }
-    if (!TREASURY_ADDRESS) {
-      throw new Error('TREASURY_ADDRESS is not set.');
-    }
-  }
+  constructor(
+    private readonly payer: Ed25519Keypair,
+    private readonly escrowPackageId: string,
+    private readonly treasuryAddress: string,
+  ) {}
 
   async hold(amountSui: number): Promise<HoldId> {
     const client = getSuiClient();
@@ -49,9 +44,9 @@ export class EscrowPaymentService implements PaymentService {
         });
 
     tx.moveCall({
-      target: `${ESCROW_PACKAGE_ID}::${ESCROW_MODULE}::lock`,
+      target: `${this.escrowPackageId}::${ESCROW_MODULE}::lock`,
       typeArguments: [SUI_COIN_TYPE],
-      arguments: [payment, tx.pure.address(TREASURY_ADDRESS)],
+      arguments: [payment, tx.pure.address(this.treasuryAddress)],
     });
 
     const result = await client.signAndExecuteTransaction({
@@ -101,7 +96,7 @@ export class EscrowPaymentService implements PaymentService {
 
     const tx = new Transaction();
     tx.moveCall({
-      target: `${ESCROW_PACKAGE_ID}::${ESCROW_MODULE}::${fn}`,
+      target: `${this.escrowPackageId}::${ESCROW_MODULE}::${fn}`,
       typeArguments: [SUI_COIN_TYPE],
       arguments: [tx.sharedObjectRef(ref)],
     });

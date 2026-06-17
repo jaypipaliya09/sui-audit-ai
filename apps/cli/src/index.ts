@@ -25,27 +25,22 @@ function buildPaymentService(): PaymentService {
   const payer = loadPayerKeypair();
   if (!payer) {
     throw new Error(
-      'MOVE_AUDITOR_SECRET_KEY is not set. Provide your testnet key to sign ' +
-        'the escrow lock, or set MOVE_AUDITOR_MOCK_PAYMENT=1 to dry-run.',
+      'MOVE_AUDITOR_SECRET_KEY is not configured. Set it in the environment and restart.',
     );
   }
-  return new EscrowPaymentService(payer);
+  const escrowPackageId = process.env.ESCROW_PACKAGE_ID?.trim() ?? '';
+  const treasuryAddress = process.env.TREASURY_ADDRESS?.trim() ?? '';
+  if (!escrowPackageId) throw new Error('ESCROW_PACKAGE_ID is not configured.');
+  if (!treasuryAddress) throw new Error('TREASURY_ADDRESS is not configured.');
+  return new EscrowPaymentService(payer, escrowPackageId, treasuryAddress);
 }
 
 /** Step 1: ask for and validate the Slush wallet. */
 async function connectWallet(): Promise<{ address: string; balanceSui: number }> {
-  const config = loadConfig();
-
-  // The CLI signs the escrow transactions with MOVE_AUDITOR_SECRET_KEY, so the
-  // wallet being audited must be that key's address (unless running mock mode).
-  const isMock = process.env.MOVE_AUDITOR_MOCK_PAYMENT === '1';
-  const signerAddress = isMock ? undefined : loadPayerKeypair()?.getPublicKey().toSuiAddress();
-
   const { address } = await prompts({
     type: 'text',
     name: 'address',
     message: 'Enter your Slush wallet address',
-    initial: signerAddress ?? config.walletAddress ?? '',
   });
   if (!address) throw new Error('No wallet address provided.');
 
@@ -55,21 +50,10 @@ async function connectWallet(): Promise<{ address: string; balanceSui: number }>
     throw new Error(`Wallet is not valid or not found: ${address}`);
   }
 
-  // Guard against signer/wallet mismatch — the cause of cryptic
-  // "InsufficientCoinBalance" failures when funds are blocked.
-  if (signerAddress && wallet.address.toLowerCase() !== signerAddress.toLowerCase()) {
-    throw new Error(
-      `Wallet ${wallet.address} does not match your signing key.\n` +
-        `The CLI signs with MOVE_AUDITOR_SECRET_KEY, whose address is ${signerAddress}.\n` +
-        `Either enter ${signerAddress}, or set MOVE_AUDITOR_SECRET_KEY to the key for ${wallet.address}.`,
-    );
-  }
-
   console.log(
     chalk.green(`✓ Wallet OK — balance: ${wallet.balanceSui} SUI (${wallet.address})`),
   );
 
-  saveConfig({ ...config, walletAddress: wallet.address });
   return { address: wallet.address, balanceSui: wallet.balanceSui };
 }
 
