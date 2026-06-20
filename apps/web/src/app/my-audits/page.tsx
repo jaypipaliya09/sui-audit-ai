@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Wallet, Shield, Clock, ArrowRight, ChevronLeft, ExternalLink, Zap, Scale, Terminal, FileText } from 'lucide-react';
-import { useWallet } from '@/lib/walletContext';
+import { useWallet, type SavedAudit } from '@/lib/walletContext';
 import { RiskBadge } from '@/components/RiskBadge';
 import { ReportMarkdown } from '@/components/ReportMarkdown';
 import { ReportViewer } from '@/components/ReportViewer';
@@ -93,6 +93,7 @@ export default function MyAuditsPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [cliRuns, setCliRuns] = useState<CliRun[]>([]);
   const [openFile, setOpenFile] = useState<CliRunFile | null>(null);
+  const [walletAudits, setWalletAudits] = useState<SavedAudit[]>([]);
 
   useEffect(() => {
     if (!address) return;
@@ -100,7 +101,37 @@ export default function MyAuditsPage() {
       .getAuditRuns(address)
       .then((runs) => setCliRuns(runs as CliRun[]))
       .catch(() => setCliRuns([]));
+    api
+      .getAuditsByWallet(address)
+      .then((audits) =>
+        setWalletAudits(
+          audits.map((a: any) => ({
+            auditId: a.id,
+            blobId: a.blobId || '',
+            contractName: a.contractName,
+            createdAt: a.createdAt,
+            overallRisk: a.overallRisk,
+            kind: 'direct' as const,
+          })),
+        ),
+      )
+      .catch(() => setWalletAudits([]));
   }, [address]);
+
+  // Merge server-fetched wallet audits with localStorage audits (server wins on blobId/risk).
+  const mergedAudits: SavedAudit[] = (() => {
+    const map = new Map<string, SavedAudit>();
+    // localStorage first (has kind='repo' entries too)
+    for (const a of myAudits) map.set(a.auditId, a);
+    // server overwrites with fresh blobId/overallRisk
+    for (const a of walletAudits) {
+      const existing = map.get(a.auditId);
+      map.set(a.auditId, { ...existing, ...a, blobId: a.blobId || existing?.blobId || '' });
+    }
+    return Array.from(map.values()).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+  })();
 
   // Flatten CLI runs to their per-file audits so they count alongside the
   // direct-UI and repo-link audits in the stats bar.
@@ -203,17 +234,17 @@ export default function MyAuditsPage() {
         {/* Stats bar */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
           {[
-            { label: 'Total Audits', value: myAudits.length + cliFiles.length },
+            { label: 'Total Audits', value: mergedAudits.length + cliFiles.length },
             {
               label: 'Completed',
               value:
-                myAudits.filter((a) => a.blobId).length +
+                mergedAudits.filter((a) => a.blobId).length +
                 cliFiles.filter((f) => f.blobId).length,
             },
             {
               label: 'Critical Found',
               value:
-                myAudits.filter((a) => a.overallRisk === 'CRITICAL').length +
+                mergedAudits.filter((a) => (a.overallRisk || '').toUpperCase() === 'CRITICAL').length +
                 cliFiles.filter((f) => (f.overallRisk || '').toUpperCase() === 'CRITICAL').length,
             },
           ].map((stat, i) => (
@@ -225,7 +256,7 @@ export default function MyAuditsPage() {
         </div>
 
         {/* Audit list */}
-        {myAudits.length === 0 ? (
+        {mergedAudits.length === 0 ? (
           <div className="text-center py-24 glass-panel border-dashed border-white/[0.1] rounded-3xl">
             <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-5 shadow-[0_0_20px_rgba(16,185,129,0.15)]">
               <Shield className="w-8 h-8 text-emerald-400" />
@@ -242,7 +273,7 @@ export default function MyAuditsPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {myAudits.map((audit, idx) => (
+            {mergedAudits.map((audit, idx) => (
               <div
                 key={audit.auditId}
                 style={{ animationDelay: `${idx * 0.06}s` }}

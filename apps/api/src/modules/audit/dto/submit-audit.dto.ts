@@ -63,4 +63,9 @@ export class SubmitAuditDto {
   @IsOptional()
   @IsString()
   txDigest?: string;
+
+  /** Sui wallet address of the submitter */
+  @IsOptional()
+  @IsString()
+  walletAddress?: string;
 }

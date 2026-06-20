@@ -364,7 +364,7 @@ export default function Home() {
       const res = await fetch(`${API_URL}/audit/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contractCode, contractName, txDigest }),
+        body: JSON.stringify({ contractCode, contractName, txDigest, walletAddress: address }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Failed to submit audit');

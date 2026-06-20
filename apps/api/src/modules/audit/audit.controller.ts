@@ -110,6 +110,15 @@ export class AuditController {
     return this.auditGateway.getEventStream(id);
   }
 
+  // ─── GET /audit/by-wallet?address= ───────────────────────────────────────
+
+  @Get('by-wallet')
+  @SkipThrottle()
+  async getByWallet(@Query('address') address: string) {
+    if (!address) return [];
+    return this.auditRepository.findByWallet(address);
+  }
+
   // ─── GET /audit/compare ───────────────────────────────────────────────────
 
   @Get('compare')

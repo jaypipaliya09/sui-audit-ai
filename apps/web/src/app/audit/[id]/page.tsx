@@ -3,6 +3,8 @@
 import { useRouter } from 'next/navigation';
 import { AuditProgress } from '@/components/AuditProgress';
 import { Shield, Clock, Globe, Lock } from 'lucide-react';
+import { useWallet } from '@/lib/walletContext';
+import { api } from '@/lib/api';
 
 const AUDIT_FACTS = [
   { icon: Shield, text: 'Analyzing 14 vulnerability categories' },
@@ -13,8 +15,22 @@ const AUDIT_FACTS = [
 
 export default function AuditProgressPage({ params }: { params: { id: string } }) {
   const router = useRouter();
+  const { saveAudit, isConnected } = useWallet();
 
-  const handleComplete = (blobId: string) => {
+  const handleComplete = async (blobId: string) => {
+    if (isConnected) {
+      try {
+        const report = await api.getAuditReport(params.id);
+        saveAudit({
+          auditId: params.id,
+          blobId,
+          contractName: report.contractName || 'Contract',
+          createdAt: report.createdAt || new Date().toISOString(),
+          overallRisk: report.overallRisk,
+          kind: 'direct',
+        });
+      } catch {}
+    }
     router.push(`/report/${blobId}`);
   };
 

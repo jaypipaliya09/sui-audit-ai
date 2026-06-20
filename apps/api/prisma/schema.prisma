@@ -29,6 +29,8 @@ model Audit {
   lowCount      Int         @default(0)
   infoCount     Int         @default(0)
 
+  walletAddress String?
+
   userId        String?
   orgId         String?
   user          User?         @relation(fields: [userId], references: [id])
@@ -46,6 +48,7 @@ model Audit {
   @@index([userId])
   @@index([orgId])
   @@index([contractHash])
+  @@index([walletAddress])
 }
 
 enum AuditStatus {

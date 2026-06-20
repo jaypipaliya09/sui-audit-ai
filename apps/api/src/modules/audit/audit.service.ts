@@ -114,7 +114,7 @@ export class AuditService {
     }
 
     // 1. Persist audit row
-    const audit = await this.auditRepository.createAudit(contractName, contractCode, txDigest);
+    const audit = await this.auditRepository.createAudit(contractName, contractCode, txDigest, dto.walletAddress);
 
     // 2. Queue the job
     const jobData: AuditJobData = {

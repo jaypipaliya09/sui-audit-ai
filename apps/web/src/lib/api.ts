@@ -108,11 +108,15 @@ class ApiClient {
   }
 
   // ── Audits ──
-  async submitAudit(data: { contractCode: string; contractName: string; txDigest?: string }) {
+  async submitAudit(data: { contractCode: string; contractName: string; txDigest?: string; walletAddress?: string }) {
     return this.request<{ auditId: string }>('/audit/submit', {
       method: 'POST',
       body: JSON.stringify(data),
     });
+  }
+
+  async getAuditsByWallet(address: string) {
+    return this.request<any[]>(`/audit/by-wallet?address=${encodeURIComponent(address)}`);
   }
 
   async getAuditReport(id: string) {

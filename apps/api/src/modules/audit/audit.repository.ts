@@ -26,17 +26,34 @@ export class AuditRepository {
 
   // ─── Create ──────────────────────────────────────────────────────────────────
 
-  async createAudit(contractName: string, contractCode: string, txDigest?: string) {
+  async createAudit(contractName: string, contractCode: string, txDigest?: string, walletAddress?: string) {
     const audit = await this.prisma.audit.create({
       data: {
         contractName,
         contractCode,
         status: AuditStatus.QUEUED,
         ...(txDigest && { txDigest }),
+        ...(walletAddress && { walletAddress: walletAddress.toLowerCase() }),
       },
     });
     this.logger.log(`Created audit record [${audit.id}] for "${contractName}"${txDigest ? ` with payment ${txDigest}` : ''}`);
     return audit;
+  }
+
+  async findByWallet(walletAddress: string) {
+    return this.prisma.audit.findMany({
+      where: { walletAddress: walletAddress.toLowerCase() },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      select: {
+        id: true,
+        contractName: true,
+        overallRisk: true,
+        blobId: true,
+        createdAt: true,
+        status: true,
+      },
+    });
   }
 
   // ─── Read ────────────────────────────────────────────────────────────────────
