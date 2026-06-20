@@ -41,10 +41,10 @@ export default function DashboardPage() {
       {/* Welcome + Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-lg font-semibold text-white">
+          <h1 className="text-2xl font-display font-medium text-ivory tracking-tight">
             Welcome back, {user?.name?.split(' ')[0] || 'there'}
           </h1>
-          <p className="text-xs text-zinc-500 mt-0.5">Here&apos;s your audit overview.</p>
+          <p className="text-xs text-zinc-500 mt-1">Here&apos;s your audit overview.</p>
         </div>
         <div className="flex items-center gap-2">
           <Link href="/" className="btn-secondary text-xs py-2 px-3">
@@ -61,11 +61,11 @@ export default function DashboardPage() {
       {/* Stats cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {/* Usage */}
-        <div className="p-4 rounded-lg surface">
+        <div className="glass-panel p-4 animate-fadeInUp hover:-translate-y-0.5 transition-transform duration-300">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-md bg-indigo-500/10 flex items-center justify-center">
-                <BarChart3 className="w-3.5 h-3.5 text-indigo-400" />
+              <div className="w-7 h-7 rounded-md bg-jade-500/10 flex items-center justify-center">
+                <BarChart3 className="w-3.5 h-3.5 text-jade-400" />
               </div>
               <span className="text-xs font-medium text-zinc-400">Monthly Usage</span>
             </div>
@@ -74,7 +74,7 @@ export default function DashboardPage() {
           <div className="w-full h-1.5 bg-zinc-900 rounded-full overflow-hidden">
             <div
               className={`h-full rounded-full transition-all duration-700 ${
-                usagePct > 80 ? 'bg-red-500' : usagePct > 60 ? 'bg-amber-500' : 'bg-indigo-500'
+                usagePct > 80 ? 'bg-red-500' : usagePct > 60 ? 'bg-amber-500' : 'bg-jade-500'
               }`}
               style={{ width: `${usagePct}%` }}
             />
@@ -87,7 +87,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Remaining */}
-        <div className="p-4 rounded-lg surface">
+        <div className="glass-panel p-4 animate-fadeInUp hover:-translate-y-0.5 transition-transform duration-300" style={{ animationDelay: '0.08s' }}>
           <div className="flex items-center gap-2 mb-3">
             <div className="w-7 h-7 rounded-md bg-emerald-500/10 flex items-center justify-center">
               <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
@@ -99,7 +99,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Plan */}
-        <div className="p-4 rounded-lg surface">
+        <div className="glass-panel p-4 animate-fadeInUp hover:-translate-y-0.5 transition-transform duration-300" style={{ animationDelay: '0.16s' }}>
           <div className="flex items-center gap-2 mb-3">
             <div className="w-7 h-7 rounded-md bg-purple-500/10 flex items-center justify-center">
               <Zap className="w-3.5 h-3.5 text-purple-400" />
@@ -153,7 +153,7 @@ export default function DashboardPage() {
                       {audit.blobId ? (
                         <Link
                           href={`/report/${audit.blobId}`}
-                          className="text-xs text-indigo-400 hover:text-indigo-300 font-medium transition-colors"
+                          className="text-xs text-jade-400 hover:text-jade-300 font-medium transition-colors"
                         >
                           View →
                         </Link>
@@ -170,7 +170,7 @@ export default function DashboardPage() {
           <div className="text-center py-12 rounded-lg surface">
             <Shield className="w-8 h-8 text-zinc-800 mx-auto mb-3" />
             <p className="text-sm text-zinc-600 mb-2">No audits yet</p>
-            <Link href="/" className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
+            <Link href="/" className="text-xs text-jade-400 hover:text-jade-300 transition-colors">
               Run your first audit →
             </Link>
           </div>

@@ -119,95 +119,97 @@ export default function AdminUsersPage() {
   if (error) return <div className="py-20 text-center text-sm text-zinc-400">{error}</div>;
 
   return (
-    <div className="space-y-4">
-      <div className="relative max-w-xs">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-600" />
+    <div className="space-y-6">
+      <div className="relative max-w-sm">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by name, email or Slush id"
-          className="w-full bg-zinc-900 border border-zinc-800 text-white text-xs rounded-md pl-9 pr-3 py-2 focus:border-indigo-500 focus:outline-none"
+          placeholder="Search by name, email or Slush id..."
+          className="w-full bg-obsidian border border-white/[0.06] text-ivory text-[13px] rounded-xl pl-11 pr-4 py-3 focus:border-emerald-500/40 focus:outline-none placeholder-zinc-600 shadow-inner transition-colors"
         />
       </div>
 
-      <div className="rounded-lg surface overflow-hidden">
+      <div className="glass-panel overflow-hidden border border-emerald-500/10 shadow-premium-sm">
         {loading ? (
-          <div className="py-16 flex justify-center"><Loader2 className="w-5 h-5 animate-spin text-zinc-600" /></div>
+          <div className="py-24 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-emerald-500/50" /></div>
         ) : filtered.length > 0 ? (
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-zinc-800/50">
-                <th className="text-left px-4 py-2.5 text-[11px] font-medium text-zinc-600 uppercase tracking-wider">User</th>
-                <th className="text-left px-4 py-2.5 text-[11px] font-medium text-zinc-600 uppercase tracking-wider">Role</th>
-                <th className="text-left px-4 py-2.5 text-[11px] font-medium text-zinc-600 uppercase tracking-wider">Status</th>
-                <th className="text-left px-4 py-2.5 text-[11px] font-medium text-zinc-600 uppercase tracking-wider">Joined</th>
-                <th className="text-right px-4 py-2.5 text-[11px] font-medium text-zinc-600 uppercase tracking-wider">Audits</th>
-                <th className="text-left px-4 py-2.5 text-[11px] font-medium text-zinc-600 uppercase tracking-wider">Plan</th>
-                <th className="text-right px-4 py-2.5 text-[11px] font-medium text-zinc-600 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((u) => {
-                const primary = u.name || (u.suiAddress ? shortSui(u.suiAddress) : u.email);
-                const secondary = u.name ? u.email : (u.suiAddress ? 'Slush wallet' : '');
-                return (
-                  <tr
-                    key={u.id}
-                    onClick={() => openDetail(u.id)}
-                    className="border-b border-zinc-800/30 last:border-0 hover:bg-white/[0.015] cursor-pointer"
-                  >
-                    <td className="px-4 py-3">
-                      <div className={`text-sm text-white font-medium ${!u.name && u.suiAddress ? 'font-mono' : ''}`}>{primary}</div>
-                      {secondary && <div className="text-[11px] text-zinc-600">{secondary}</div>}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-zinc-500">{u.role}</td>
-                    <td className="px-4 py-3">
-                      {u.isBlocked ? (
-                        <span className="text-[11px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20">Blocked</span>
-                      ) : (
-                        <span className="text-[11px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Active</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-zinc-600">{new Date(u.createdAt).toLocaleDateString()}</td>
-                    <td className="px-4 py-3 text-xs text-zinc-500 text-right">{u._count?.audits || 0}</td>
-                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                      <select
-                        value={u.subscription?.plan || 'FREE'}
-                        onChange={(e) => handlePlanChange(u.id, e.target.value)}
-                        className="bg-zinc-900 border border-zinc-800 text-white text-xs rounded-md px-2 py-1.5 focus:border-indigo-500 focus:outline-none"
-                      >
-                        {PLANS.map((p) => <option key={p} value={p}>{p}</option>)}
-                      </select>
-                    </td>
-                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          onClick={() => handleToggleBlock(u.id, !u.isBlocked)}
-                          title={u.isBlocked ? 'Unblock' : 'Block'}
-                          className={`p-1.5 rounded-md border transition-colors ${
-                            u.isBlocked
-                              ? 'border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/10'
-                              : 'border-amber-500/20 text-amber-400 hover:bg-amber-500/10'
-                          }`}
+          <div className="overflow-x-auto">
+            <table className="w-full whitespace-nowrap">
+              <thead>
+                <tr className="border-b border-white/[0.06] bg-white/[0.01]">
+                  <th className="text-left px-5 py-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">User</th>
+                  <th className="text-left px-5 py-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Role</th>
+                  <th className="text-left px-5 py-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Status</th>
+                  <th className="text-left px-5 py-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Joined</th>
+                  <th className="text-right px-5 py-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Audits</th>
+                  <th className="text-left px-5 py-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Plan</th>
+                  <th className="text-right px-5 py-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((u) => {
+                  const primary = u.name || (u.suiAddress ? shortSui(u.suiAddress) : u.email);
+                  const secondary = u.name ? u.email : (u.suiAddress ? 'Slush wallet' : '');
+                  return (
+                    <tr
+                      key={u.id}
+                      onClick={() => openDetail(u.id)}
+                      className="border-b border-white/[0.02] last:border-0 hover:bg-white/[0.02] cursor-pointer transition-colors group"
+                    >
+                      <td className="px-5 py-4">
+                        <div className={`text-[13px] text-ivory font-bold ${!u.name && u.suiAddress ? 'font-mono' : ''}`}>{primary}</div>
+                        {secondary && <div className="text-[11px] text-zinc-500 font-medium mt-0.5">{secondary}</div>}
+                      </td>
+                      <td className="px-5 py-4 text-[12px] font-bold uppercase tracking-wider text-zinc-400">{u.role}</td>
+                      <td className="px-5 py-4">
+                        {u.isBlocked ? (
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded bg-red-500/10 text-red-400 border border-red-500/20">Blocked</span>
+                        ) : (
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Active</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-4 text-[12px] text-zinc-500">{new Date(u.createdAt).toLocaleDateString()}</td>
+                      <td className="px-5 py-4 text-[12px] font-mono text-zinc-400 text-right">{u._count?.audits || 0}</td>
+                      <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
+                        <select
+                          value={u.subscription?.plan || 'FREE'}
+                          onChange={(e) => handlePlanChange(u.id, e.target.value)}
+                          className="bg-obsidian border border-white/[0.06] text-ivory text-[11px] font-bold tracking-wider rounded-lg px-2.5 py-1.5 focus:border-emerald-500/40 focus:outline-none appearance-none cursor-pointer"
                         >
-                          {u.isBlocked ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Ban className="w-3.5 h-3.5" />}
-                        </button>
-                        <button
-                          onClick={() => handleDelete(u.id)}
-                          title="Delete"
-                          className="p-1.5 rounded-md border border-red-500/20 text-red-400 hover:bg-red-500/10 transition-colors"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                          {PLANS.map((p) => <option key={p} value={p}>{p}</option>)}
+                        </select>
+                      </td>
+                      <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => handleToggleBlock(u.id, !u.isBlocked)}
+                            title={u.isBlocked ? 'Unblock' : 'Block'}
+                            className={`p-2 rounded-lg border transition-colors ${
+                              u.isBlocked
+                                ? 'border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/10'
+                                : 'border-amber-500/20 text-amber-400 hover:bg-amber-500/10'
+                            }`}
+                          >
+                            {u.isBlocked ? <CheckCircle2 className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
+                          </button>
+                          <button
+                            onClick={() => handleDelete(u.id)}
+                            title="Delete"
+                            className="p-2 rounded-lg border border-red-500/20 text-red-400 hover:bg-red-500/10 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         ) : (
-          <div className="text-center py-12 text-zinc-600 text-sm">No users found.</div>
+          <div className="text-center py-20 text-zinc-500 text-sm font-medium">No users found.</div>
         )}
       </div>
 

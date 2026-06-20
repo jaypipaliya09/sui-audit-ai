@@ -67,20 +67,20 @@ export default function AdminOverviewPage() {
       )}
 
       {/* Filter bar */}
-      <div className="rounded-lg surface p-4 space-y-3">
-        <div className="flex items-center gap-2 text-xs font-medium text-zinc-300">
-          <SlidersHorizontal className="w-3.5 h-3.5 text-zinc-500" />
+      <div className="glass-panel p-5 space-y-4 shadow-premium-sm border border-emerald-500/10">
+        <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-emerald-400/80 mb-2">
+          <SlidersHorizontal className="w-4 h-4" />
           Statistics filters
         </div>
         <div className="flex flex-wrap items-center gap-3">
           {/* Granularity segmented control */}
-          <div className="flex bg-zinc-900 rounded-md p-0.5 border border-zinc-800">
+          <div className="flex bg-obsidian rounded-lg p-1 border border-white/[0.06] shadow-inner">
             {GRANULARITIES.map((g) => (
               <button
                 key={g}
                 onClick={() => setGranularity(g)}
-                className={`px-3 py-1 rounded text-xs font-medium capitalize transition-colors ${
-                  granularity === g ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'
+                className={`px-4 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all duration-300 ${
+                  granularity === g ? 'bg-emerald-500/15 text-emerald-400 shadow-[inset_0_0_10px_rgba(16,185,129,0.1)]' : 'text-zinc-500 hover:text-ivory'
                 }`}
               >
                 {g}
@@ -88,31 +88,31 @@ export default function AdminOverviewPage() {
             ))}
           </div>
 
-          <label className="flex items-center gap-1.5 text-[11px] text-zinc-500">
+          <label className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-zinc-500 bg-white/[0.02] border border-white/[0.04] rounded-lg px-3 py-1.5 focus-within:border-emerald-500/30 transition-colors">
             From
-            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={selectClass} />
+            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="bg-transparent text-ivory text-xs focus:outline-none placeholder-zinc-700 [color-scheme:dark]" />
           </label>
-          <label className="flex items-center gap-1.5 text-[11px] text-zinc-500">
+          <label className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-zinc-500 bg-white/[0.02] border border-white/[0.04] rounded-lg px-3 py-1.5 focus-within:border-emerald-500/30 transition-colors">
             To
-            <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={selectClass} />
+            <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="bg-transparent text-ivory text-xs focus:outline-none placeholder-zinc-700 [color-scheme:dark]" />
           </label>
 
-          <select value={plan} onChange={(e) => setPlan(e.target.value)} className={selectClass}>
+          <select value={plan} onChange={(e) => setPlan(e.target.value)} className="bg-obsidian border border-white/[0.06] text-ivory text-xs rounded-lg px-3 py-2.5 focus:border-emerald-500/40 focus:outline-none appearance-none cursor-pointer">
             <option value="">All plans</option>
             {PLANS.map((p) => <option key={p} value={p}>{p}</option>)}
           </select>
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className={selectClass}>
+          <select value={status} onChange={(e) => setStatus(e.target.value)} className="bg-obsidian border border-white/[0.06] text-ivory text-xs rounded-lg px-3 py-2.5 focus:border-emerald-500/40 focus:outline-none appearance-none cursor-pointer">
             <option value="">All statuses</option>
             {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
-          <select value={risk} onChange={(e) => setRisk(e.target.value)} className={selectClass}>
+          <select value={risk} onChange={(e) => setRisk(e.target.value)} className="bg-obsidian border border-white/[0.06] text-ivory text-xs rounded-lg px-3 py-2.5 focus:border-emerald-500/40 focus:outline-none appearance-none cursor-pointer">
             <option value="">All risks</option>
             {RISKS.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
 
           {(from || to || plan || status || risk) && (
-            <button onClick={resetFilters} className="text-[11px] text-indigo-400 hover:text-indigo-300">
-              Reset
+            <button onClick={resetFilters} className="text-[11px] font-bold uppercase tracking-wider text-red-400 hover:text-red-300 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20 transition-colors">
+              Reset Filters
             </button>
           )}
         </div>

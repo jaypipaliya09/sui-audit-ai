@@ -11,6 +11,7 @@ const config: Config = {
       fontFamily: {
         sans: ["var(--font-inter)", "system-ui", "sans-serif"],
         mono: ["var(--font-mono)", "ui-monospace", "SFMono-Regular", "monospace"],
+        display: ["var(--font-fraunces)", "Georgia", "serif"],
       },
       colors: {
         background: "var(--background)",
@@ -18,6 +19,20 @@ const config: Config = {
         surface: "var(--surface)",
         "surface-2": "var(--surface-2)",
         border: "var(--border)",
+        // Luxury "Obsidian & Jade" palette
+        jade: {
+          300: "#6ee7b7",
+          400: "#34d399",
+          500: "#10b981",
+          600: "#059669",
+        },
+        champagne: {
+          300: "#e6d6b0",
+          400: "#d4bd8a",
+          500: "#c2a76a",
+        },
+        ivory: "#f3f0e9",
+        obsidian: "#0a0b0d",
       },
       animation: {
         "glow-pulse": "glow-pulse 3s ease-in-out infinite",

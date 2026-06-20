@@ -55,19 +55,22 @@ export default function RepoReportPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
-        <Loader2 className="w-6 h-6 text-zinc-600 animate-spin" />
+      <div className="min-h-screen bg-obsidian flex items-center justify-center relative overflow-hidden">
+        <div aria-hidden className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full blur-[120px] bg-emerald-500/10 pointer-events-none" />
+        <Loader2 className="relative z-10 w-8 h-8 text-emerald-500 animate-spin" />
       </div>
     );
   }
 
   if (error || !report) {
     return (
-      <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
-        <div className="text-center">
-          <AlertTriangle className="w-10 h-10 text-red-400/60 mx-auto mb-3" />
-          <h2 className="text-lg font-semibold text-white mb-1">Report Not Found</h2>
-          <p className="text-xs text-zinc-500">{error || 'Unable to load this report.'}</p>
+      <div className="min-h-screen bg-obsidian flex items-center justify-center p-4">
+        <div className="text-center glass-panel p-10 max-w-md w-full border-red-500/20">
+          <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4 shadow-[0_0_20px_rgba(239,68,68,0.15)]">
+            <AlertTriangle className="w-8 h-8 text-red-400" />
+          </div>
+          <h2 className="text-2xl font-display font-medium text-ivory mb-2">Report Not Found</h2>
+          <p className="text-sm text-zinc-400 leading-relaxed">{error || 'Unable to load this report. It may have expired or never existed.'}</p>
         </div>
       </div>
     );
@@ -85,55 +88,65 @@ export default function RepoReportPage() {
   const executiveSummary = findings?.executiveSummary || findings?.summary?.executiveSummary || '';
 
   return (
-    <div className="min-h-screen bg-[#09090b] pt-20 pb-16">
-      <div className="max-w-4xl mx-auto px-4 space-y-6">
+    <div className="min-h-screen bg-obsidian pt-24 pb-20 relative overflow-hidden">
+      {/* Dynamic Background Effect */}
+      <div aria-hidden className="absolute top-0 right-1/4 w-[700px] h-[500px] rounded-full blur-[150px] pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.06), transparent 70%)' }} />
+      <div aria-hidden className="absolute top-40 -left-20 w-[500px] h-[500px] rounded-full blur-[130px] pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(77,162,255,0.04), transparent 70%)' }} />
+
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 space-y-8 relative z-10">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fadeIn">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-fadeIn glass-panel p-6 border border-white/[0.04]">
           <div>
-            <h1 className="text-lg font-semibold text-white flex items-center gap-2">
-              <Shield className="w-5 h-5 text-indigo-400" />
+            <h1 className="text-2xl font-display font-medium text-ivory flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
+                <Shield className="w-5 h-5 text-indigo-400" />
+              </div>
               {repoName}
             </h1>
-            <div className="flex items-center gap-3 mt-1 text-xs text-zinc-500">
+            <div className="flex items-center gap-3 mt-3 text-xs font-medium text-zinc-400 pl-1">
               {commitSha && (
-                <span className="flex items-center gap-1 font-mono">
-                  <GitBranch className="w-3 h-3" />
+                <span className="flex items-center gap-1.5 font-mono px-2 py-1 rounded-md bg-white/5 border border-white/[0.05]">
+                  <GitBranch className="w-3.5 h-3.5 text-zinc-500" />
                   {commitSha.slice(0, 7)}
                 </span>
               )}
               {report.projectTrack && (
-                <span className="px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-800 text-[11px]">
+                <span className="px-2.5 py-1 rounded-md bg-indigo-500/10 border border-indigo-500/20 text-indigo-300">
                   {report.projectTrack}
                 </span>
               )}
             </div>
           </div>
-          <RiskBadge level={overallRisk} />
+          <div className="sm:text-right">
+            <RiskBadge level={overallRisk} />
+          </div>
         </div>
 
         {/* Executive Summary */}
         {executiveSummary && (
-          <div className="rounded-lg surface p-5 animate-fadeInUp">
-            <h3 className="text-sm font-medium text-white mb-2">Executive Summary</h3>
-            <p className="text-xs text-zinc-400 leading-relaxed">{executiveSummary}</p>
+          <div className="glass-panel p-6 animate-fadeInUp" style={{ animationDelay: '0.1s' }}>
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-emerald-400 mb-3 flex items-center gap-2">
+              <Lightbulb className="w-4 h-4" /> Executive Summary
+            </h3>
+            <p className="text-sm text-zinc-300 leading-relaxed max-w-3xl">{executiveSummary}</p>
           </div>
         )}
 
         {/* Cross-contract risks */}
         {sharedRisks.length > 0 && (
-          <div className="rounded-lg bg-red-500/[0.04] border border-red-500/15 p-5">
-            <h3 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-red-400" />
+          <div className="glass-panel border border-red-500/20 bg-red-500/[0.02] p-6 animate-fadeInUp" style={{ animationDelay: '0.15s' }}>
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-red-400 mb-4 flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4" />
               Cross-Contract Risks
             </h3>
-            <div className="space-y-2">
+            <div className="space-y-3">
               {sharedRisks.map((risk: any, i: number) => (
-                <div key={i} className="flex items-start gap-3 p-3 bg-zinc-900/60 rounded-lg">
+                <div key={i} className="flex items-start gap-4 p-4 bg-white/[0.02] border border-red-500/10 rounded-xl transition-colors hover:bg-red-500/[0.05]">
                   <RiskBadge level={risk.severity || 'HIGH'} className="shrink-0 mt-0.5" />
                   <div>
-                    <h4 className="text-xs font-medium text-white">{risk.title || risk.description}</h4>
+                    <h4 className="text-sm font-medium text-ivory mb-1">{risk.title || risk.description}</h4>
                     {risk.description && risk.title && (
-                      <p className="text-[11px] text-zinc-500 mt-0.5">{risk.description}</p>
+                      <p className="text-xs text-zinc-400 leading-relaxed">{risk.description}</p>
                     )}
                   </div>
                 </div>
@@ -144,53 +157,60 @@ export default function RepoReportPage() {
 
         {/* Per-contract */}
         {contracts.length > 0 && (
-          <div className="space-y-2">
-            <h3 className="text-sm font-medium text-white mb-2">Per-Contract Findings</h3>
+          <div className="space-y-3 animate-fadeInUp" style={{ animationDelay: '0.2s' }}>
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-500 mb-4 pl-1">Per-Contract Findings</h3>
             {contracts.map((contract: any, i: number) => {
               const path = contract.path || contract.contractName || `Contract ${i + 1}`;
               const isOpen = openContracts[path] || false;
               const cFindings = contract.findings || [];
 
               return (
-                <div key={i} className="rounded-lg surface overflow-hidden">
+                <div key={i} className="glass-panel overflow-hidden transition-all duration-300">
                   <button
                     onClick={() => toggleContract(path)}
-                    className="w-full flex items-center gap-2.5 px-4 py-3 hover:bg-white/[0.015] transition-colors"
+                    className="w-full flex items-center gap-3 px-5 py-4 hover:bg-white/[0.02] transition-colors group"
                   >
-                    {isOpen
-                      ? <ChevronDown className="w-3.5 h-3.5 text-zinc-500" />
-                      : <ChevronRight className="w-3.5 h-3.5 text-zinc-500" />
-                    }
-                    <FileCode2 className="w-3.5 h-3.5 text-indigo-400" />
-                    <span className="text-xs text-white font-medium flex-1 text-left">{path}</span>
+                    <div className="w-6 h-6 rounded bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+                      {isOpen
+                        ? <ChevronDown className="w-4 h-4 text-zinc-400 group-hover:text-white transition-colors" />
+                        : <ChevronRight className="w-4 h-4 text-zinc-400 group-hover:text-white transition-colors" />
+                      }
+                    </div>
+                    <FileCode2 className="w-4 h-4 text-indigo-400 shrink-0" />
+                    <span className="text-sm text-ivory font-mono flex-1 text-left truncate">{path}</span>
                     <RiskBadge level={contract.overallRisk || contract.risk || 'CLEAN'} />
-                    <span className="text-[10px] text-zinc-700 ml-1">{cFindings.length} findings</span>
+                    <span className="text-[11px] font-medium text-zinc-500 ml-3 bg-white/5 px-2 py-0.5 rounded-full">{cFindings.length} findings</span>
                   </button>
 
                   {isOpen && (
-                    <div className="border-t border-zinc-800/40 px-4 py-3 space-y-2">
+                    <div className="border-t border-white/[0.04] px-5 py-4 space-y-4 bg-white/[0.01]">
                       {contract.contractHash && (
-                        <div className="mb-3 flex items-center justify-between p-2 rounded bg-zinc-900 border border-zinc-800/60">
+                        <div className="flex items-center justify-between p-3 rounded-xl bg-obsidian border border-white/[0.04]">
                           <div>
-                            <div className="text-[10px] text-zinc-500 font-medium mb-0.5 uppercase tracking-wider">Contract Hash</div>
-                            <div className="text-[11px] text-zinc-300 font-mono">{contract.contractHash}</div>
+                            <div className="text-[10px] text-zinc-500 font-bold mb-1 uppercase tracking-widest">Contract Hash</div>
+                            <div className="text-[12px] text-zinc-300 font-mono">{contract.contractHash}</div>
                           </div>
                           <button
                             onClick={() => {
                               navigator.clipboard.writeText(contract.contractHash);
-                              // We could add a toast here, but simple copy is fine
                             }}
-                            className="p-1.5 hover:bg-zinc-800 rounded text-zinc-500 hover:text-white transition-colors"
+                            className="p-2 hover:bg-white/5 rounded-lg text-zinc-500 hover:text-emerald-400 transition-colors border border-transparent hover:border-emerald-500/30"
                             title="Copy to Verify"
                           >
-                            <Copy className="w-3.5 h-3.5" />
+                            <Copy className="w-4 h-4" />
                           </button>
                         </div>
                       )}
-                      {cFindings.length > 0 ? cFindings.map((finding: any, j: number) => (
-                        <FindingCard key={j} finding={normalizeFinding(finding, j) as any} />
-                      )) : (
-                        <div className="text-xs text-zinc-500 italic p-2 text-center">No vulnerabilities found in this contract.</div>
+                      {cFindings.length > 0 ? (
+                        <div className="space-y-3">
+                          {cFindings.map((finding: any, j: number) => (
+                            <FindingCard key={j} finding={normalizeFinding(finding, j) as any} />
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-sm text-emerald-400/80 italic p-4 text-center bg-emerald-500/[0.02] border border-emerald-500/10 rounded-xl">
+                          No vulnerabilities found in this contract. ✨
+                        </div>
                       )}
                     </div>
                   )}
@@ -202,13 +222,17 @@ export default function RepoReportPage() {
 
         {/* Recommendations */}
         {recommendations.length > 0 && (
-          <div className="rounded-lg surface p-5">
-            <h3 className="text-sm font-medium text-white mb-3">Repository Recommendations</h3>
-            <ul className="space-y-1.5">
+          <div className="glass-panel p-6 animate-fadeInUp" style={{ animationDelay: '0.25s' }}>
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-indigo-400 mb-4 flex items-center gap-2">
+              <Lightbulb className="w-4 h-4" /> Repository Recommendations
+            </h3>
+            <ul className="space-y-2">
               {recommendations.map((rec: string, i: number) => (
-                <li key={i} className="text-xs text-zinc-400 flex items-start gap-2">
-                  <span className="text-indigo-500 mt-0.5">•</span>
-                  {rec}
+                <li key={i} className="text-sm text-zinc-300 flex items-start gap-3">
+                  <span className="bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-full w-5 h-5 flex items-center justify-center shrink-0 text-[10px] font-bold mt-0.5">
+                    {i + 1}
+                  </span>
+                  <span className="leading-relaxed">{rec}</span>
                 </li>
               ))}
             </ul>
@@ -217,22 +241,24 @@ export default function RepoReportPage() {
 
         {/* Walrus + On-Chain */}
         {report.blobId && report.walrusUrl && (
-          <WalrusLink blobId={report.blobId} walrusUrl={report.walrusUrl} />
+          <div className="animate-fadeInUp" style={{ animationDelay: '0.3s' }}>
+            <WalrusLink blobId={report.blobId} walrusUrl={report.walrusUrl} />
+          </div>
         )}
 
         {report.onChainTxDigest && (
-          <div className="rounded-lg surface p-4 flex items-center justify-between">
+          <div className="glass-panel p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-fadeInUp" style={{ animationDelay: '0.35s' }}>
             <div>
-              <h4 className="text-xs font-medium text-white">On-Chain Registry</h4>
-              <p className="text-[11px] text-zinc-600 font-mono mt-0.5">{report.onChainTxDigest}</p>
+              <h4 className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 mb-1">On-Chain Registry</h4>
+              <p className="text-xs text-zinc-300 font-mono break-all">{report.onChainTxDigest}</p>
             </div>
             <a
               href={`https://suiscan.xyz/testnet/tx/${report.onChainTxDigest}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1"
+              className="shrink-0 btn-secondary text-xs px-3 py-1.5"
             >
-              Suiscan <ExternalLink className="w-3 h-3" />
+              Verify on Suiscan <ExternalLink className="w-3.5 h-3.5" />
             </a>
           </div>
         )}

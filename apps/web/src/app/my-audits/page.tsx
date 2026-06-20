@@ -123,21 +123,24 @@ export default function MyAuditsPage() {
 
   if (!isConnected) {
     return (
-      <main className="min-h-screen bg-[#0d1117] flex items-center justify-center pt-16 p-4">
-        <div className="max-w-md mx-auto text-center space-y-6">
-          <div className="w-20 h-20 rounded-3xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mx-auto">
-            <Wallet className="w-10 h-10 text-blue-400" />
+      <main className="min-h-screen bg-obsidian flex items-center justify-center pt-16 p-4 relative overflow-hidden">
+        {/* Ambient background glow */}
+        <div aria-hidden className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full blur-[120px] bg-gradient-to-br from-emerald-500/10 to-transparent pointer-events-none" />
+        
+        <div className="max-w-md mx-auto text-center space-y-6 relative z-10 glass-panel p-10 border border-white/[0.05]">
+          <div className="w-20 h-20 rounded-3xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto shadow-[0_0_30px_rgba(16,185,129,0.15)]">
+            <Wallet className="w-10 h-10 text-emerald-400" />
           </div>
           <div>
-            <h1 className="text-3xl font-black text-white mb-3">My Audits</h1>
-            <p className="text-gray-500 leading-relaxed">
-              Connect your Sui wallet to see all the audits you have submitted. Your audit history is stored locally per wallet.
+            <h1 className="text-3xl font-display font-medium text-ivory mb-3">My Audits</h1>
+            <p className="text-zinc-400 leading-relaxed text-sm">
+              Connect your Sui wallet to see all the audits you have submitted. Your audit history is stored securely per wallet.
             </p>
           </div>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+          <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">
             <Link
               href="/"
-              className="flex items-center justify-center gap-2 px-6 py-3 border border-[#30363d] hover:border-[#444c56] text-gray-300 hover:text-white rounded-xl transition-all font-medium text-sm"
+              className="btn-secondary w-full sm:w-auto"
             >
               <ChevronLeft className="w-4 h-4" />
               Go Home
@@ -149,47 +152,46 @@ export default function MyAuditsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#0d1117] pt-24 pb-20 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto">
+    <main className="min-h-screen bg-obsidian pt-24 pb-20 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+      {/* Dynamic Background */}
+      <div aria-hidden className="absolute -top-40 left-1/4 w-[800px] h-[400px] rounded-full blur-[140px] pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.06), transparent 70%)' }} />
+      
+      <div className="max-w-5xl mx-auto relative z-10">
 
         {/* Header */}
-        <div className="mb-10">
+        <div className="mb-12">
           <Link
             href="/"
-            className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-200 transition-colors mb-6"
+            className="inline-flex items-center gap-1.5 text-sm text-zinc-500 hover:text-ivory transition-colors mb-6 group"
           >
-            <ChevronLeft className="w-4 h-4" />
+            <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
             Back to Home
           </Link>
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-black text-white tracking-tight">My Audits</h1>
-              <div className="flex items-center gap-2 mt-2">
-                <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
-                  <Wallet className="w-3 h-3 text-white" />
+              <h1 className="text-3xl sm:text-4xl font-display font-medium text-ivory tracking-tight drop-shadow-md">My Audits</h1>
+              <div className="flex items-center gap-2 mt-3">
+                <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 border border-emerald-500/20 flex items-center justify-center">
+                  <Wallet className="w-3 h-3 text-emerald-400" />
                 </div>
-                <span className="font-mono text-xs text-gray-500">{address && shortAddr(address)}</span>
+                <span className="font-mono text-xs text-zinc-400 bg-white/5 px-2 py-1 rounded-md border border-white/5">{address && shortAddr(address)}</span>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <button
                 onClick={() => {
                   setCompareMode(!compareMode);
                   setSelectedIds([]);
                 }}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-lg ${
-                  compareMode
-                    ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
-                    : 'bg-[#161b22] border border-[#30363d] text-gray-300 hover:bg-[#21262d]'
-                }`}
+                className={compareMode ? 'btn-primary' : 'btn-secondary'}
               >
                 <Scale className="w-4 h-4" />
-                Compare
+                {compareMode ? 'Cancel Compare' : 'Compare'}
               </button>
               <Link
                 href="/#audit"
-                className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold text-sm transition-all shadow-lg shadow-blue-500/20 hover:-translate-y-0.5"
+                className="btn-primary"
               >
                 <Zap className="w-4 h-4" />
                 New Audit
@@ -198,8 +200,8 @@ export default function MyAuditsPage() {
           </div>
         </div>
 
-        {/* Stats bar — counts every audit type: direct UI, repo link, and CLI runs. */}
-        <div className="grid grid-cols-3 gap-4 mb-8">
+        {/* Stats bar */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
           {[
             { label: 'Total Audits', value: myAudits.length + cliFiles.length },
             {
@@ -214,33 +216,36 @@ export default function MyAuditsPage() {
                 myAudits.filter((a) => a.overallRisk === 'CRITICAL').length +
                 cliFiles.filter((f) => (f.overallRisk || '').toUpperCase() === 'CRITICAL').length,
             },
-          ].map((stat) => (
-            <div key={stat.label} className="p-4 rounded-xl border border-[#21262d] bg-[#161b22] text-center">
-              <div className="text-2xl font-black text-white">{stat.value}</div>
-              <div className="text-xs text-gray-500 mt-1">{stat.label}</div>
+          ].map((stat, i) => (
+            <div key={stat.label} style={{ animationDelay: `${i * 0.08}s` }} className="glass-panel p-6 text-center hover:-translate-y-1 hover:border-emerald-500/20 transition-all duration-300 animate-fadeInUp">
+              <div className="text-3xl font-display font-bold text-ivory">{stat.value}</div>
+              <div className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mt-2">{stat.label}</div>
             </div>
           ))}
         </div>
 
         {/* Audit list */}
         {myAudits.length === 0 ? (
-          <div className="text-center py-20 border border-dashed border-[#30363d] rounded-2xl">
-            <Shield className="w-12 h-12 text-gray-700 mx-auto mb-4" />
-            <h3 className="text-lg font-bold text-gray-400 mb-2">No audits yet</h3>
-            <p className="text-gray-600 text-sm mb-6">Submit your first Sui Move contract to get started.</p>
+          <div className="text-center py-24 glass-panel border-dashed border-white/[0.1] rounded-3xl">
+            <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-5 shadow-[0_0_20px_rgba(16,185,129,0.15)]">
+              <Shield className="w-8 h-8 text-emerald-400" />
+            </div>
+            <h3 className="text-xl font-display font-medium text-ivory mb-2">No audits yet</h3>
+            <p className="text-zinc-400 text-sm mb-8 max-w-sm mx-auto">Submit your first Sui Move contract or GitHub repository to get started.</p>
             <Link
               href="/#audit"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold text-sm transition-all"
+              className="btn-primary"
             >
               Run Your First Audit
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {myAudits.map((audit, idx) => (
               <div
                 key={audit.auditId}
+                style={{ animationDelay: `${idx * 0.06}s` }}
                 onClick={() =>
                   audit.blobId &&
                   router.push(
@@ -249,9 +254,9 @@ export default function MyAuditsPage() {
                       : `/report/${audit.blobId}`,
                   )
                 }
-                className={`group flex items-center gap-4 p-5 rounded-xl border border-[#21262d] bg-[#161b22] transition-all duration-200 ${
+                className={`group flex items-center gap-4 p-5 rounded-2xl border border-white/[0.04] bg-[#0a0a0c]/60 backdrop-blur-md transition-all duration-300 shadow-premium-sm animate-fadeInUp ${
                   audit.blobId
-                    ? 'hover:bg-[#1c2128] hover:border-[#30363d] cursor-pointer hover:-translate-y-0.5'
+                    ? 'hover:bg-[#0a0a0c]/80 hover:border-emerald-500/30 cursor-pointer hover:-translate-y-1 hover:shadow-premium-hover'
                     : 'opacity-70'
                 }`}
               >
@@ -264,43 +269,45 @@ export default function MyAuditsPage() {
                       checked={selectedIds.includes(audit.auditId)}
                       onChange={(e) => toggleSelection(e as any, audit.auditId)}
                       onClick={(e) => e.stopPropagation()}
-                      className="w-5 h-5 rounded border-gray-600 text-blue-500 focus:ring-blue-500/20 bg-[#0f0f0f]"
+                      className="w-5 h-5 rounded border-zinc-600 text-emerald-500 focus:ring-emerald-500/20 bg-obsidian"
                     />
                   </div>
                 ) : (
-                  <div className="shrink-0 w-8 h-8 rounded-lg bg-[#21262d] flex items-center justify-center text-xs font-bold text-gray-500">
-                    {idx + 1}
+                  <div className="shrink-0 w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-sm font-bold text-zinc-500 border border-white/[0.02]">
+                    {String(idx + 1).padStart(2, '0')}
                   </div>
                 )}
 
                 {/* Contract info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-1">
-                    <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded font-semibold ${
+                    <span className={`shrink-0 text-[10px] px-2 py-1 rounded-md font-bold uppercase tracking-wider ${
                       audit.kind === 'repo'
-                        ? 'bg-purple-500/10 text-purple-300 border border-purple-500/20'
-                        : 'bg-blue-500/10 text-blue-300 border border-blue-500/20'
+                        ? 'bg-purple-500/15 text-purple-300 border border-purple-500/30'
+                        : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
                     }`}>
                       {audit.kind === 'repo' ? 'REPO' : 'DIRECT'}
                     </span>
-                    <h3 className="font-semibold text-gray-200 truncate group-hover:text-white transition-colors">
+                    <h3 className="text-lg font-semibold text-ivory truncate group-hover:text-emerald-300 transition-colors">
                       {audit.contractName}
                     </h3>
                     {audit.overallRisk && <RiskBadge level={audit.overallRisk} />}
                   </div>
-                  <div className="flex items-center gap-3 text-xs text-gray-600">
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
+                  <div className="flex items-center gap-4 text-xs text-zinc-500 font-medium">
+                    <span className="flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5" />
                       {new Date(audit.createdAt).toLocaleString()}
                     </span>
                     {audit.blobId && (
-                      <span className="font-mono">{audit.blobId.slice(0, 16)}…</span>
+                      <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white/5 border border-white/[0.04] font-mono text-[10px]">
+                        {audit.blobId.slice(0, 16)}…
+                      </span>
                     )}
                   </div>
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-3 shrink-0 pr-2">
                   {audit.blobId ? (
                     <>
                       <a
@@ -308,17 +315,20 @@ export default function MyAuditsPage() {
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={(e) => e.stopPropagation()}
-                        className="p-2 rounded-lg text-gray-500 hover:text-gray-200 hover:bg-[#21262d] transition-colors"
+                        className="p-2.5 rounded-xl text-zinc-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors"
                         title="View PDF report"
                       >
-                        <ExternalLink className="w-4 h-4" />
+                        <ExternalLink className="w-4.5 h-4.5" />
                       </a>
-                      <div className="p-2 rounded-lg text-gray-500 group-hover:text-gray-200 transition-colors">
-                        <ArrowRight className="w-4 h-4" />
+                      <div className="p-2.5 rounded-xl text-zinc-500 group-hover:text-emerald-400 group-hover:translate-x-1 transition-all">
+                        <ArrowRight className="w-5 h-5" />
                       </div>
                     </>
                   ) : (
-                    <span className="text-xs text-yellow-400 bg-yellow-400/10 px-2 py-1 rounded-lg">Processing…</span>
+                    <span className="flex items-center gap-2 text-xs font-semibold text-amber-400 bg-amber-400/10 px-3 py-1.5 rounded-lg border border-amber-400/20">
+                      <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                      Processing…
+                    </span>
                   )}
                 </div>
               </div>
@@ -326,38 +336,41 @@ export default function MyAuditsPage() {
           </div>
         )}
         {/* Move Auditor CLI runs (paid per-file audits from the move-auditor package) */}
-        <div className="mt-12">
-          <div className="flex items-center gap-2 mb-4">
-            <Terminal className="w-5 h-5 text-blue-400" />
-            <h2 className="text-xl font-black text-white tracking-tight">Move Auditor CLI Runs</h2>
+        <div className="mt-16">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+              <Terminal className="w-5 h-5 text-blue-400" />
+            </div>
+            <h2 className="text-2xl font-display font-medium text-ivory tracking-tight drop-shadow-md">CLI Audit Runs</h2>
           </div>
 
           {cliRuns.length === 0 ? (
-            <div className="text-center py-12 border border-dashed border-[#30363d] rounded-2xl">
-              <Terminal className="w-10 h-10 text-gray-700 mx-auto mb-3" />
-              <p className="text-gray-500 text-sm">
-                No CLI runs yet. Audit from the terminal with{' '}
-                <code className="text-blue-400">move-auditor</code> and pay per file in USDC.
+            <div className="text-center py-16 glass-panel border-dashed border-white/[0.1] rounded-3xl">
+              <Terminal className="w-10 h-10 text-zinc-600 mx-auto mb-4" />
+              <p className="text-zinc-400 text-sm max-w-md mx-auto">
+                No CLI runs yet. Audit directly from the terminal with{' '}
+                <code className="text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20">move-auditor</code> and pay per file in USDC.
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-6">
               {cliRuns.map((run) => (
-                <div key={run.id} className="rounded-xl border border-[#21262d] bg-[#161b22] p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="flex items-center gap-1.5 text-xs text-gray-500">
-                      <Clock className="w-3 h-3" />
+                <div key={run.id} className="glass-panel p-6">
+                  <div className="flex items-center justify-between mb-5 border-b border-white/[0.06] pb-4">
+                    <span className="flex items-center gap-2 text-sm text-zinc-400 font-medium">
+                      <Clock className="w-4 h-4 text-zinc-500" />
                       {new Date(run.createdAt).toLocaleString()}
                     </span>
-                    <span className="text-xs font-semibold text-green-400 bg-green-400/10 px-2 py-1 rounded-lg">
+                    <span className="text-xs font-bold text-emerald-400 bg-emerald-400/10 px-3 py-1.5 rounded-lg border border-emerald-500/20 flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                       {run.totalCostUsdc} USDC · {run.files.length} file{run.files.length === 1 ? '' : 's'}
                     </span>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {run.files.map((f) => (
                       <div
                         key={f.id}
-                        className="w-full flex items-center gap-3 p-3 rounded-lg bg-[#0d1117] border border-[#21262d] hover:border-[#30363d] transition-all"
+                        className="group w-full flex items-center gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.04] hover:border-blue-500/30 transition-all duration-300"
                       >
                         <button
                           onClick={async () => {
@@ -366,13 +379,17 @@ export default function MyAuditsPage() {
                             const match = full.files.find((x: CliRunFile) => x.id === f.id);
                             setOpenFile({ ...(match ?? f), createdAt: run.createdAt });
                           }}
-                          className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                          className="flex items-center gap-4 flex-1 min-w-0 text-left cursor-pointer"
                         >
-                          <FileText className="w-4 h-4 text-gray-500 shrink-0" />
-                          <span className="flex-1 min-w-0 truncate text-sm text-gray-300 font-mono">
-                            {f.file.split('/').pop()}
-                          </span>
-                          <span className="text-xs text-gray-600">{f.findingsCount} findings</span>
+                          <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                            <FileText className="w-4 h-4 text-blue-400" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="truncate text-sm text-ivory font-mono group-hover:text-blue-300 transition-colors">
+                              {f.file.split('/').pop()}
+                            </h4>
+                            <span className="text-xs text-zinc-500">{f.findingsCount} findings</span>
+                          </div>
                           <RiskBadge level={f.overallRisk as any} />
                         </button>
                         {f.blobId && (
@@ -381,10 +398,10 @@ export default function MyAuditsPage() {
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
-                            className="shrink-0 flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 px-2 py-1 rounded-lg border border-blue-500/20"
+                            className="shrink-0 flex items-center gap-1.5 text-xs font-semibold text-blue-400 hover:text-white px-3 py-1.5 rounded-lg border border-blue-500/20 hover:bg-blue-500/20 transition-all"
                             title="View PDF report"
                           >
-                            <ExternalLink className="w-3 h-3" /> PDF
+                            <ExternalLink className="w-3.5 h-3.5" /> PDF
                           </a>
                         )}
                       </div>
@@ -400,18 +417,18 @@ export default function MyAuditsPage() {
       {/* Report viewer modal */}
       {openFile && (
         <div
-          className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn"
           onClick={() => setOpenFile(null)}
         >
           <div
-            className="bg-[#0d1117] border border-[#30363d] rounded-2xl max-w-5xl w-full max-h-[88vh] overflow-hidden flex flex-col"
+            className="glass-panel !rounded-2xl max-w-5xl w-full max-h-[88vh] overflow-hidden flex flex-col shadow-premium-lg animate-scaleIn"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-[#21262d] shrink-0">
-              <h3 className="font-mono text-sm text-gray-200 truncate">{openFile.file}</h3>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06] shrink-0">
+              <h3 className="font-mono text-sm text-zinc-300 truncate">{openFile.file}</h3>
               <button
                 onClick={() => setOpenFile(null)}
-                className="text-gray-500 hover:text-white text-sm"
+                className="text-zinc-500 hover:text-ivory text-sm transition-colors"
               >
                 Close
               </button>
@@ -429,15 +446,16 @@ export default function MyAuditsPage() {
 
       {/* Floating Compare Action */}
       {compareMode && selectedIds.length > 0 && (
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#1a1a1a] border border-[#2a2a2a] shadow-2xl rounded-full px-6 py-3 flex items-center gap-4 z-50 animate-in slide-in-from-bottom-8">
-          <span className="text-sm font-medium text-gray-300">
-            <span className="text-white">{selectedIds.length}</span> of 2 selected
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 glass-panel !rounded-full shadow-premium-lg px-6 py-3 flex items-center gap-4 z-50 animate-in slide-in-from-bottom-8">
+          <span className="text-sm font-medium text-zinc-300">
+            <span className="text-ivory font-semibold">{selectedIds.length}</span> of 2 selected
           </span>
           <button
             onClick={handleCompareSubmit}
             disabled={selectedIds.length !== 2}
-            className="bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-400 text-white text-sm font-medium px-4 py-2 rounded-full transition-all"
+            className="btn-primary !rounded-full disabled:opacity-40 disabled:cursor-not-allowed text-sm px-4 py-2"
           >
+            <Scale className="w-3.5 h-3.5" />
             Compare Audits
           </button>
         </div>

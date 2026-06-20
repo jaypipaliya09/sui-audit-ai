@@ -95,14 +95,19 @@ export function MetricCards({ metrics }: { metrics: DashboardMetrics }) {
     { label: 'Criticals (Month)', value: metrics.criticalFindingsThisMonth.toString(), icon: AlertTriangle, color: 'text-red-400', bg: 'bg-red-500/8', border: 'border-red-500/15' },
   ];
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
       {cards.map((card) => (
-        <div key={card.label} className={`${card.bg} border ${card.border} rounded-lg p-4 transition-all hover:scale-[1.01]`}>
-          <div className="flex items-center gap-1.5 mb-2">
-            <card.icon className={`w-3.5 h-3.5 ${card.color}`} />
-            <span className="text-[11px] text-zinc-500 font-medium">{card.label}</span>
+        <div key={card.label} className={`glass-panel border ${card.border} p-5 transition-all duration-300 hover:scale-[1.02] hover:-translate-y-1 group relative overflow-hidden`}>
+          <div aria-hidden className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${card.bg.replace('/8', '/5')} rounded-full blur-2xl -mr-10 -mt-10 opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 mb-3">
+              <div className={`w-8 h-8 rounded-lg ${card.bg} border ${card.border} flex items-center justify-center shrink-0`}>
+                <card.icon className={`w-4 h-4 ${card.color}`} />
+              </div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-500">{card.label}</span>
+            </div>
+            <div className="text-2xl font-display font-medium text-ivory tracking-tight">{card.value}</div>
           </div>
-          <div className="text-xl font-bold text-white">{card.value}</div>
         </div>
       ))}
     </div>
@@ -111,9 +116,9 @@ export function MetricCards({ metrics }: { metrics: DashboardMetrics }) {
 
 export function ChartCard({ title, icon: Icon, children }: { title: string; icon: any; children: React.ReactNode }) {
   return (
-    <div className="rounded-lg surface p-4">
-      <h3 className="text-xs font-medium text-zinc-300 mb-4 flex items-center gap-1.5">
-        <Icon className="w-3.5 h-3.5 text-zinc-500" />
+    <div className="glass-panel p-6 shadow-premium-sm">
+      <h3 className="text-[12px] font-bold uppercase tracking-widest text-emerald-400/80 mb-6 flex items-center gap-2">
+        <Icon className="w-4 h-4" />
         {title}
       </h3>
       {children}
@@ -223,35 +228,38 @@ export function UserDetailPanel({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md h-full bg-[#0c0c0e] border-l border-zinc-800 overflow-y-auto animate-slideInRight">
-        <div className="sticky top-0 bg-[#0c0c0e]/90 backdrop-blur-sm border-b border-zinc-800 px-5 py-4 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-white">User Detail</h2>
-          <button onClick={onClose} className="text-zinc-500 hover:text-white transition-colors">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-md transition-opacity" onClick={onClose} />
+      <div className="relative w-full max-w-md h-full bg-[#08080a] border-l border-white/[0.06] overflow-y-auto animate-slideInRight shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+        <div className="sticky top-0 bg-[#08080a]/80 backdrop-blur-xl border-b border-white/[0.06] px-6 py-5 flex items-center justify-between z-10">
+          <h2 className="text-[13px] font-bold uppercase tracking-widest text-ivory flex items-center gap-2">
+            <Users className="w-4 h-4 text-emerald-400" />
+            User Detail
+          </h2>
+          <button onClick={onClose} className="p-2 rounded-lg text-zinc-500 hover:text-white hover:bg-white/5 transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {loading ? (
-          <div className="py-20 flex justify-center"><Loader2 className="w-5 h-5 animate-spin text-zinc-600" /></div>
+          <div className="py-24 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-emerald-500/50" /></div>
         ) : (
-          <div className="p-5 space-y-5">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-indigo-600/15 border border-indigo-500/20 flex items-center justify-center text-indigo-400 font-semibold">
+          <div className="p-6 space-y-8">
+            <div className="flex items-center gap-4 bg-white/[0.01] border border-white/[0.04] rounded-2xl p-5 shadow-inner">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-white font-bold text-lg shadow-[0_0_20px_rgba(99,102,241,0.3)] shrink-0">
                 {user.name?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || 'U'}
               </div>
               <div className="min-w-0">
-                <div className="text-sm font-medium text-white truncate flex items-center gap-2">
+                <div className="text-[15px] font-display font-medium text-ivory truncate flex items-center gap-2 mb-1">
                   <span className={!user.name && user.suiAddress ? 'font-mono' : ''}>
                     {user.name || (user.suiAddress ? shortSui(user.suiAddress) : user.email)}
                   </span>
-                  {user.isBlocked && <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20">Blocked</span>}
+                  {user.isBlocked && <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20">Blocked</span>}
                 </div>
-                <div className="text-xs text-zinc-500 truncate">{user.name ? user.email : (user.suiAddress ? 'Slush wallet' : user.email)}</div>
+                <div className="text-xs text-zinc-500 font-mono truncate">{user.name ? user.email : (user.suiAddress ? 'Slush wallet' : user.email)}</div>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-4">
               <Meta label="Role" value={user.role} />
               <Meta label="Joined" value={user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '—'} />
               <Meta label="Total audits" value={String(user._count?.audits ?? '—')} />
@@ -259,52 +267,56 @@ export function UserDetailPanel({
               {user.suiAddress && <Meta label="Sui address" value={`${user.suiAddress.slice(0, 10)}…`} mono />}
             </div>
 
-            <div>
-              <label className="text-[11px] text-zinc-500 font-medium uppercase tracking-wider">Plan</label>
-              <select
-                value={user.subscription?.plan || 'FREE'}
-                onChange={(e) => onPlanChange(user.id, e.target.value)}
-                className="mt-1.5 w-full bg-zinc-900 border border-zinc-800 text-white text-xs rounded-md px-2.5 py-2 focus:border-indigo-500 focus:outline-none"
-              >
-                {PLAN_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
-              </select>
+            <div className="bg-white/[0.01] border border-white/[0.04] rounded-2xl p-5 space-y-4">
+              <div>
+                <label className="text-[11px] text-zinc-500 font-bold uppercase tracking-wider mb-2 block">Subscription Plan</label>
+                <select
+                  value={user.subscription?.plan || 'FREE'}
+                  onChange={(e) => onPlanChange(user.id, e.target.value)}
+                  className="w-full bg-obsidian border border-white/[0.06] text-ivory text-[13px] font-bold tracking-wider rounded-xl px-4 py-3 focus:border-emerald-500/40 focus:outline-none appearance-none cursor-pointer"
+                >
+                  {PLAN_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => onToggleBlock(user.id, !user.isBlocked)}
+                  className={`flex-1 text-[11px] font-bold uppercase tracking-wider rounded-xl px-4 py-3 border transition-colors ${
+                    user.isBlocked
+                      ? 'border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/10'
+                      : 'border-amber-500/20 text-amber-400 hover:bg-amber-500/10'
+                  }`}
+                >
+                  {user.isBlocked ? 'Unblock User' : 'Block User'}
+                </button>
+                <button
+                  onClick={() => onDelete(user.id)}
+                  className="flex-1 text-[11px] font-bold uppercase tracking-wider rounded-xl px-4 py-3 border border-red-500/20 text-red-400 hover:bg-red-500/10 transition-colors"
+                >
+                  Delete User
+                </button>
+              </div>
             </div>
 
-            <div className="flex gap-2">
-              <button
-                onClick={() => onToggleBlock(user.id, !user.isBlocked)}
-                className={`flex-1 text-xs font-medium rounded-md px-3 py-2 border transition-colors ${
-                  user.isBlocked
-                    ? 'border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/10'
-                    : 'border-amber-500/20 text-amber-400 hover:bg-amber-500/10'
-                }`}
-              >
-                {user.isBlocked ? 'Unblock' : 'Block'}
-              </button>
-              <button
-                onClick={() => onDelete(user.id)}
-                className="flex-1 text-xs font-medium rounded-md px-3 py-2 border border-red-500/20 text-red-400 hover:bg-red-500/10 transition-colors"
-              >
-                Delete
-              </button>
-            </div>
-
             <div>
-              <h3 className="text-xs font-medium text-zinc-300 mb-2">Recent Audits</h3>
+              <h3 className="text-[11px] font-bold uppercase tracking-widest text-zinc-500 mb-4">Recent Audits</h3>
               {user.audits?.length > 0 ? (
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   {user.audits.map((a: any) => (
-                    <div key={a.id} className="flex items-center justify-between gap-2 rounded-md bg-white/[0.02] border border-zinc-800/50 px-3 py-2">
+                    <div key={a.id} className="flex items-center justify-between gap-3 rounded-xl bg-white/[0.02] border border-white/[0.04] px-4 py-3 hover:bg-white/[0.04] transition-colors">
                       <div className="min-w-0">
-                        <div className="text-xs text-white truncate">{a.contractName || 'Untitled'}</div>
-                        <div className="text-[10px] text-zinc-600">{new Date(a.createdAt).toLocaleDateString()}</div>
+                        <div className="text-[13px] font-medium text-ivory truncate mb-0.5">{a.contractName || 'Untitled'}</div>
+                        <div className="text-[10px] text-zinc-500 font-mono">{new Date(a.createdAt).toLocaleDateString()}</div>
                       </div>
                       <RiskBadge level={a.overallRisk || a.status || 'INFO'} />
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-zinc-600">No audits.</p>
+                <div className="text-center p-6 bg-white/[0.01] border border-white/[0.04] rounded-xl">
+                  <p className="text-xs text-zinc-500 italic">No audits generated yet.</p>
+                </div>
               )}
             </div>
           </div>

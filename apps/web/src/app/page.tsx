@@ -11,6 +11,9 @@ import {
 import { api } from '@/lib/api';
 import { TRACKS } from '@/lib/tracks';
 import { ContractEditor } from '@/components/ContractEditor';
+import { Hero } from '@/components/Hero';
+import { Reveal, SectionHeading, SpotlightCard, ScrollProgress, Divider, IntroOverlay, CustomCursor } from '@/components/home/HomeUI';
+import { motion } from 'framer-motion';
 import { AuditMethodSelector } from '@/components/AuditMethodSelector';
 import { RiskBadge } from '@/components/RiskBadge';
 import { SkeletonAuditCard } from '@/components/SkeletonCard';
@@ -29,17 +32,11 @@ const FEATURES = [
 ];
 
 const HOW_STEPS = [
-  { title: 'Paste Contract', desc: 'Drop your Sui Move code into the editor or load a demo.', icon: FileCode2 },
+  { title: 'Input Source Code', desc: 'Paste a Move module or scan a GitHub repository.', icon: FileCode2 },
+  { title: 'Repo Compilation', desc: 'Repositories are cloned and compiled securely.', icon: GitBranch },
   { title: 'AI Analyzes', desc: 'Claude Sonnet 4 scans 14 vulnerability categories in ~60s.', icon: Brain },
   { title: 'Report Generated', desc: 'Structured findings with severity, impact, and recommendations.', icon: BarChart3 },
   { title: 'Stored on Walrus', desc: 'Your report is stored permanently on the decentralized network.', icon: Database },
-];
-
-const STATS = [
-  { label: 'Audits Run', value: '2,400+' },
-  { label: 'Vulnerabilities Found', value: '8,900+' },
-  { label: 'Avg. Audit Time', value: '< 60s' },
-  { label: 'Stored on Walrus', value: '100%' },
 ];
 
 const VULN_CATEGORIES = [
@@ -84,11 +81,11 @@ function RepoAuditInline() {
   };
 
   return (
-    <FadeIn delay={0.3} className="rounded-xl surface overflow-hidden">
-      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-zinc-800/50 bg-zinc-900/50">
-        <div className="w-2.5 h-2.5 rounded-full bg-red-500/50" />
-        <div className="w-2.5 h-2.5 rounded-full bg-amber-500/50" />
-        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/50" />
+    <FadeIn delay={0.3} className="rounded-2xl border border-white/[0.07] bg-[#0b0b0f]/85 backdrop-blur-xl overflow-hidden shadow-2xl shadow-emerald-950/20">
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.06] bg-white/[0.02]">
+        <div className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
+        <div className="w-2.5 h-2.5 rounded-full bg-amber-500/60" />
+        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/60" />
         <span className="ml-2 text-[11px] text-zinc-600 font-mono flex items-center gap-1">
           <GitBranch className="w-3 h-3" /> github_audit
         </span>
@@ -98,7 +95,7 @@ function RepoAuditInline() {
         {/* Step 1 */}
         <div>
           <div className="flex items-center gap-2.5 mb-3">
-            <div className="w-6 h-6 rounded-full bg-indigo-500/10 text-indigo-400 flex items-center justify-center font-bold text-[11px]">1</div>
+            <div className="w-6 h-6 rounded-full bg-jade-500/10 text-jade-400 flex items-center justify-center font-bold text-[11px]">1</div>
             <h3 className="text-sm font-medium text-white">Scan Repository</h3>
           </div>
           <div className="ml-8 space-y-3">
@@ -147,7 +144,7 @@ function RepoAuditInline() {
         {/* Step 2 */}
         <div className={`transition-opacity ${!scanResult ? 'opacity-30 pointer-events-none' : ''}`}>
           <div className="flex items-center gap-2.5 mb-3">
-            <div className="w-6 h-6 rounded-full bg-indigo-500/10 text-indigo-400 flex items-center justify-center font-bold text-[11px]">2</div>
+            <div className="w-6 h-6 rounded-full bg-jade-500/10 text-jade-400 flex items-center justify-center font-bold text-[11px]">2</div>
             <h3 className="text-sm font-medium text-white">Configure & Submit</h3>
           </div>
           <div className="ml-8 space-y-4">
@@ -157,7 +154,7 @@ function RepoAuditInline() {
                 {TRACKS.map((track) => (
                   <button key={track.id} onClick={() => setProjectTrack(track.id)}
                     className={`p-2 rounded-md border text-[11px] transition-colors ${projectTrack === track.id
-                      ? 'bg-indigo-500/8 border-indigo-500/20 text-indigo-300'
+                      ? 'bg-jade-500/8 border-jade-500/20 text-jade-300'
                       : 'border-zinc-800 text-zinc-500 hover:border-zinc-700'
                       }`}
                   >{track.label}</button>
@@ -320,149 +317,184 @@ export default function Home() {
   const isFormValid = contractCode.length > 0 && contractName.length > 0;
 
   return (
-    <main className="min-h-screen bg-[#09090b]">
+    <main className="relative min-h-screen bg-obsidian">
+      <IntroOverlay />
+      <CustomCursor />
+      <ScrollProgress />
+
+      {/* page-level grain + vignette for a framed, material feel */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 z-[1] opacity-[0.022] mix-blend-overlay"
+        style={{
+          backgroundImage:
+            "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
+        }}
+      />
+      <div aria-hidden className="pointer-events-none fixed inset-0 z-[1]" style={{ boxShadow: 'inset 0 0 220px 50px rgba(0,0,0,0.55)' }} />
 
       {/* ── HERO ──────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden pt-28 pb-16 hero-grid">
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-indigo-600/[0.06] rounded-full blur-[100px]" />
-        </div>
+      <Hero onStartAudit={() => auditSectionRef.current?.scrollIntoView({ behavior: 'smooth' })} />
 
-        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-indigo-500/20 bg-indigo-500/8 text-indigo-400 text-xs font-medium mb-6 animate-fadeInUp">
-            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
-            Powered by Claude Sonnet 4 + Walrus Network
-          </div>
-
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-[1.1] tracking-tight mb-5 animate-fadeInUp" style={{ animationDelay: '0.1s' }}>
-            AI Security Audits
-            <br />
-            <span className="text-indigo-400">for Sui Move</span>
-          </h1>
-
-          <p className="text-base text-zinc-500 max-w-xl mx-auto mb-8 leading-relaxed animate-fadeInUp" style={{ animationDelay: '0.2s' }}>
-            Paste your Move contract. Get a comprehensive security audit in under 60 seconds.
-            Findings stored permanently on Walrus.
-          </p>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-12 animate-fadeInUp" style={{ animationDelay: '0.3s' }}>
-            <button
-              onClick={() => auditSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
-              className="btn-primary px-6 py-3 text-sm"
-            >
-              <Zap className="w-4 h-4" />
-              Start Free Audit
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-            <Link href="/how-it-works" className="btn-secondary px-6 py-3 text-sm">
-              How It Works
-            </Link>
-          </div>
-
-          {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-zinc-800/50 rounded-xl overflow-hidden border border-zinc-800 max-w-2xl mx-auto animate-fadeInUp" style={{ animationDelay: '0.4s' }}>
-            {STATS.map((stat) => (
-              <div key={stat.label} className="bg-[#111113] px-5 py-4 text-center">
-                <div className="text-xl font-bold text-white">{stat.value}</div>
-                <div className="text-[11px] text-zinc-600 mt-0.5">{stat.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <Divider />
 
       {/* ── FEATURES ──────────────────────────────────────────────────── */}
-      <section className="py-20 max-w-5xl mx-auto px-4 sm:px-6">
-        <FadeIn className="text-center mb-12">
-          <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight mb-3">
-            Everything you need to ship securely
-          </h2>
-          <p className="text-sm text-zinc-500 max-w-lg mx-auto">
-            From access control to gas optimization — comprehensive analysis built for the Sui Move ecosystem.
-          </p>
-        </FadeIn>
+      <section className="relative py-24 max-w-5xl mx-auto px-4 sm:px-6">
+        <div aria-hidden className="absolute top-10 left-1/2 -translate-x-1/2 w-[560px] h-[280px] bg-jade-600/[0.05] rounded-full blur-[120px] pointer-events-none" />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <SectionHeading
+          eyebrow="Capabilities"
+          title={<>Everything you need to <span className="lux-gradient">ship securely</span></>}
+          subtitle="From access control to gas optimization — comprehensive analysis built for the Sui Move ecosystem."
+          className="mb-14"
+        />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {FEATURES.map((feat, i) => (
-            <FadeIn
-              key={feat.title}
-              delay={i * 0.08}
-              className="group p-5 rounded-xl surface hover:border-zinc-700 transition-all duration-200"
-            >
-              <div className="w-9 h-9 rounded-lg bg-indigo-500/8 border border-indigo-500/15 flex items-center justify-center mb-3">
-                <feat.icon className="w-4 h-4 text-indigo-400" />
-              </div>
-              <h3 className="text-sm font-semibold text-white mb-1.5">{feat.title}</h3>
-              <p className="text-xs text-zinc-500 leading-relaxed">{feat.description}</p>
-            </FadeIn>
+            <Reveal key={feat.title} delay={(i % 3) * 0.1}>
+              <SpotlightCard className="h-full p-6">
+                <div className="relative w-11 h-11 rounded-xl bg-gradient-to-br from-jade-500/20 to-champagne-400/10 border border-jade-400/20 flex items-center justify-center mb-4 transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3">
+                  <div aria-hidden className="absolute inset-0 rounded-xl bg-jade-500/20 blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  <feat.icon className="relative w-5 h-5 text-jade-300" />
+                </div>
+                <h3 className="text-[15px] font-semibold text-white mb-2 group-hover:text-jade-300 transition-colors">{feat.title}</h3>
+                <p className="text-[13px] text-zinc-500 leading-relaxed group-hover:text-zinc-400 transition-colors">{feat.description}</p>
+              </SpotlightCard>
+            </Reveal>
           ))}
         </div>
       </section>
 
       {/* ── HOW IT WORKS ──────────────────────────────────────────────── */}
-      <section className="py-16 border-y border-zinc-900 bg-[#0c0c0e]">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6">
-          <FadeIn className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
-            <div>
-              <div className="text-indigo-400 text-xs font-semibold uppercase tracking-widest mb-2">The Process</div>
-              <h2 className="text-2xl font-bold text-white">How It Works</h2>
-            </div>
-            <Link href="/how-it-works" className="text-xs text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1 transition-colors">
-              Full explanation <ChevronRight className="w-3 h-3" />
-            </Link>
-          </FadeIn>
+      <section className="relative py-28 bg-[#0a0a0d] overflow-hidden">
+        {/* gradient edge borders */}
+        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-jade-500/25 to-transparent" />
+        <div className="absolute bottom-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-jade-500/25 to-transparent" />
+        {/* Ambient glows */}
+        <div aria-hidden className="absolute -top-20 right-[10%] w-[400px] h-[300px] bg-champagne-500/[0.05] rounded-full blur-[120px] pointer-events-none" />
+        <div aria-hidden className="absolute bottom-0 left-[15%] w-[350px] h-[250px] bg-jade-600/[0.04] rounded-full blur-[100px] pointer-events-none" />
+        {/* Dot grid background */}
+        <div aria-hidden className="absolute inset-0 hiw-dot-grid opacity-20 pointer-events-none" />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="relative max-w-5xl mx-auto px-4 sm:px-6">
+          <Reveal className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-16">
+            <div>
+              <div className="inline-flex items-center gap-2.5 mb-3">
+                <span className="h-px w-6 bg-gradient-to-r from-transparent to-champagne-400/70" />
+                <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-champagne-400">The Process</span>
+              </div>
+              <h2 className="font-display font-medium text-ivory text-[2rem] md:text-[2.6rem] tracking-[-0.02em] leading-[1.1]">
+                How It <span className="lux-gradient">Works</span>
+              </h2>
+            </div>
+            <Link href="/how-it-works" className="group text-xs text-jade-400 hover:text-jade-300 font-medium flex items-center gap-1 transition-colors">
+              Full explanation <ChevronRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
+            </Link>
+          </Reveal>
+
+          <div className="relative grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-7">
+            {/* Animated connector beam on desktop */}
+            <div aria-hidden className="hidden lg:block absolute top-9 left-[10%] right-[10%] h-px">
+              <div className="absolute inset-0 bg-gradient-to-r from-jade-500/0 via-jade-500/20 to-jade-500/0" />
+              <motion.div
+                initial={{ left: '0%', opacity: 0 }}
+                whileInView={{ left: ['0%', '100%'], opacity: [0, 1, 1, 0] }}
+                viewport={{ once: true }}
+                transition={{ duration: 3, repeat: Infinity, repeatDelay: 1, ease: 'linear' }}
+                className="absolute top-[-2px] w-8 h-[5px] bg-gradient-to-r from-transparent via-jade-400/80 to-transparent rounded-full blur-[1px]"
+              />
+            </div>
+
             {HOW_STEPS.map((step, idx) => (
-              <FadeIn delay={idx * 0.1} key={step.title} className="relative flex flex-col items-center text-center">
-                <div className="relative w-10 h-10 rounded-full bg-indigo-500/8 border border-indigo-500/15 flex items-center justify-center mb-4">
-                  <step.icon className="w-4 h-4 text-indigo-400" />
-                  <div className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-indigo-600 flex items-center justify-center text-white text-[9px] font-bold">
+              <Reveal delay={idx * 0.15} key={step.title} className="relative flex flex-col items-center text-center group">
+                <motion.div
+                  whileHover={{ scale: 1.12, y: -5, rotate: -3 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 18 }}
+                  className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-[#15151b] to-[#0e0e12] border border-jade-400/20 flex items-center justify-center mb-5 shadow-lg shadow-emerald-950/40 hiw-glow-pulse"
+                >
+                  {/* Glow backdrop */}
+                  <div aria-hidden className="absolute inset-0 rounded-2xl bg-jade-500/15 blur-md opacity-40 group-hover:opacity-70 transition-opacity duration-500" />
+                  {/* Pulse ring on hover */}
+                  <div aria-hidden className="absolute inset-0 rounded-2xl border border-jade-400/20 opacity-0 group-hover:opacity-100 hiw-pulse-ring" />
+                  <step.icon className="relative w-5 h-5 text-jade-300 group-hover:text-jade-200 transition-colors" />
+                  <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-gradient-to-br from-jade-500 to-champagne-500 flex items-center justify-center text-white text-[10px] font-bold ring-4 ring-[#0a0a0d] shadow-md shadow-emerald-950/50">
                     {idx + 1}
                   </div>
-                </div>
-                <h3 className="text-sm font-semibold text-white mb-1">{step.title}</h3>
-                <p className="text-xs text-zinc-500 leading-relaxed">{step.desc}</p>
-              </FadeIn>
+                </motion.div>
+                <h3 className="text-[13px] font-semibold text-white mb-1.5 group-hover:text-jade-300 transition-colors">{step.title}</h3>
+                <p className="text-xs text-zinc-500 leading-relaxed max-w-[200px] group-hover:text-zinc-400 transition-colors">{step.desc}</p>
+                {/* Floating particles on hover */}
+                {[0, 1, 2].map((p) => (
+                  <div
+                    key={p}
+                    aria-hidden
+                    className="absolute w-1 h-1 rounded-full bg-jade-400/60 opacity-0 group-hover:opacity-100 hiw-particle pointer-events-none"
+                    style={{ top: `${15 + p * 12}%`, left: `${25 + p * 20}%`, animationDelay: `${p * 0.5}s` }}
+                  />
+                ))}
+              </Reveal>
             ))}
           </div>
 
-          <FadeIn delay={0.4} className="mt-10 p-5 rounded-xl surface">
-            <div className="flex items-center gap-2 mb-3">
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-              <span className="text-xs font-medium text-zinc-300">14 Vulnerability Categories Analyzed</span>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {VULN_CATEGORIES.map((cat) => (
-                <span key={cat} className="px-2.5 py-1 rounded-md bg-zinc-900 border border-zinc-800 text-[11px] text-zinc-500">{cat}</span>
-              ))}
-            </div>
-          </FadeIn>
+          <Reveal delay={0.3} className="mt-16">
+            <SpotlightCard className="p-6 relative overflow-hidden">
+              {/* Scan line effect */}
+              <div aria-hidden className="hiw-scan-line bg-gradient-to-r from-transparent via-jade-400/20 to-transparent pointer-events-none" />
+              <div className="relative">
+                <div className="flex items-center gap-2 mb-4">
+                  <motion.div
+                    whileHover={{ rotate: 12 }}
+                    transition={{ type: 'spring', stiffness: 300 }}
+                  >
+                    <AlertTriangle className="w-4 h-4 text-amber-400" />
+                  </motion.div>
+                  <span className="text-sm font-medium text-zinc-200">14 Vulnerability Categories Analyzed</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {VULN_CATEGORIES.map((cat, i) => (
+                    <motion.span
+                      key={cat}
+                      initial={{ opacity: 0, scale: 0.85, y: 8 }}
+                      whileInView={{ opacity: 1, scale: 1, y: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ duration: 0.5, delay: i * 0.04, ease: [0.16, 1, 0.3, 1] }}
+                      whileHover={{ scale: 1.08, y: -2, boxShadow: '0 4px 20px rgba(52,211,153,0.15)' }}
+                      className="px-3 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.07] text-[11px] text-zinc-400 hover:border-jade-400/30 hover:text-jade-300 hover:bg-jade-500/[0.05] transition-all duration-300 cursor-default"
+                    >
+                      {cat}
+                    </motion.span>
+                  ))}
+                </div>
+              </div>
+            </SpotlightCard>
+          </Reveal>
         </div>
       </section>
 
       {/* ── AUDIT EDITOR ──────────────────────────────────────────────── */}
-      <section id="audit" ref={auditSectionRef} className="py-20 max-w-5xl mx-auto px-4 sm:px-6">
-        <FadeIn className="text-center mb-10">
-          <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight mb-3">
-            Audit Your Contract Now
-          </h2>
-          <p className="text-sm text-zinc-500 max-w-lg mx-auto">
-            Paste your Sui Move code or load a demo contract. Results in under 60 seconds.
-          </p>
-        </FadeIn>
+      <section id="audit" ref={auditSectionRef} className="relative py-24 max-w-5xl mx-auto px-4 sm:px-6">
+        <div aria-hidden className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-jade-600/[0.06] rounded-full blur-[130px] pointer-events-none" />
 
-        <FadeIn delay={0.15} className="mb-5">
+        <SectionHeading
+          eyebrow="Get Started"
+          title={<>Audit Your Contract <span className="lux-gradient">Now</span></>}
+          subtitle="Paste your Sui Move code or load a demo contract. Results in under 60 seconds."
+          className="mb-10"
+        />
+
+        <Reveal delay={0.1} className="mb-5">
           <AuditMethodSelector selected={auditMethod} onSelect={setAuditMethod} />
-        </FadeIn>
+        </Reveal>
 
         {auditMethod === 'single' ? (
-          <FadeIn delay={0.25} className="rounded-xl surface overflow-hidden">
-            <div className="flex items-center gap-2 px-4 py-2.5 border-b border-zinc-800/50 bg-zinc-900/50">
-              <div className="w-2.5 h-2.5 rounded-full bg-red-500/50" />
-              <div className="w-2.5 h-2.5 rounded-full bg-amber-500/50" />
-              <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/50" />
-              <span className="ml-2 text-[11px] text-zinc-600 font-mono">move_contract.move</span>
+          <Reveal delay={0.2} className="relative rounded-2xl p-px">
+            <div aria-hidden className="absolute inset-0 rounded-2xl opacity-70" style={{ background: 'linear-gradient(135deg, rgba(52,211,153,0.4), rgba(212,189,138,0.12) 45%, rgba(255,255,255,0.04) 75%)' }} />
+            <div className="relative rounded-2xl bg-[#0b0b0f]/90 backdrop-blur-xl overflow-hidden shadow-2xl shadow-emerald-950/30">
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.06] bg-white/[0.02]">
+              <div className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
+              <div className="w-2.5 h-2.5 rounded-full bg-amber-500/60" />
+              <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/60" />
+              <span className="ml-2 text-[11px] text-zinc-500 font-mono">move_contract.move</span>
             </div>
 
             <div className="p-5 space-y-5">
@@ -520,65 +552,79 @@ export default function Home() {
                 ))}
               </div>
             </div>
-          </FadeIn>
+            </div>
+          </Reveal>
         ) : (
           <RepoAuditInline />
         )}
       </section>
 
+      <Divider />
+
       {/* ── RECENT AUDITS ─────────────────────────────────────────────── */}
-      <section className="pb-20 max-w-5xl mx-auto px-4 sm:px-6">
-        <FadeIn className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold text-white">Recent Audits</h2>
+      <section className="pb-24 pt-4 max-w-5xl mx-auto px-4 sm:px-6">
+        <Reveal className="flex items-end justify-between mb-7">
+          <div>
+            <div className="inline-flex items-center gap-2.5 mb-2">
+              <span className="h-px w-6 bg-gradient-to-r from-transparent to-champagne-400/70" />
+              <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-champagne-400">Activity</span>
+            </div>
+            <h2 className="font-display font-medium text-ivory text-[1.9rem] md:text-[2.2rem] tracking-[-0.02em]">Recent Audits</h2>
+          </div>
           {isConnected && (
-            <Link href="/my-audits" className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors font-medium flex items-center gap-1">
-              My Audits <ArrowRight className="w-3 h-3" />
+            <Link href="/my-audits" className="group text-xs text-jade-400 hover:text-jade-300 transition-colors font-medium flex items-center gap-1">
+              My Audits <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
             </Link>
           )}
-        </FadeIn>
+        </Reveal>
 
         {auditsLoading ? (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[...Array(6)].map((_, i) => <SkeletonAuditCard key={i} />)}
           </div>
         ) : recentAudits.length > 0 ? (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {recentAudits.map((audit, idx) => (
-              <FadeIn
-                delay={idx * 0.08}
-                key={audit.id}
-                onClick={() => audit.blobId && router.push(`/report/${audit.blobId}`)}
-                className={`group p-4 rounded-xl surface hover:border-zinc-700 transition-all duration-200 ${audit.blobId ? 'cursor-pointer' : ''}`}
-              >
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="text-sm font-medium text-zinc-300 truncate pr-2 group-hover:text-white transition-colors">
-                    {audit.contractName}
-                  </h3>
-                  <RiskBadge level={audit.overallRisk || audit.status} className="shrink-0" />
-                </div>
-                <div className="flex items-center justify-between text-[11px] text-zinc-600">
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    {new Date(audit.createdAt).toLocaleDateString()}
-                  </span>
-                  <span className="font-mono">
-                    {audit.blobId ? `${audit.blobId.slice(0, 10)}…` : (audit.id?.startsWith('d') ? 'Demo' : 'Processing…')}
-                  </span>
-                </div>
-              </FadeIn>
+              <Reveal delay={(idx % 3) * 0.08} key={audit.id}>
+                <SpotlightCard
+                  onClick={() => audit.blobId && router.push(`/report/${audit.blobId}`)}
+                  className={`p-5 ${audit.blobId ? 'cursor-pointer' : ''}`}
+                >
+                  <div className="flex justify-between items-start mb-3 gap-2">
+                    <h3 className="text-sm font-medium text-zinc-200 truncate group-hover:text-white transition-colors">
+                      {audit.contractName}
+                    </h3>
+                    <RiskBadge level={audit.overallRisk || audit.status} className="shrink-0" />
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] text-zinc-600">
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {new Date(audit.createdAt).toLocaleDateString()}
+                    </span>
+                    <span className="font-mono inline-flex items-center gap-1 group-hover:text-jade-400 transition-colors">
+                      {audit.blobId ? `${audit.blobId.slice(0, 10)}…` : (audit.id?.startsWith('d') ? 'Demo' : 'Processing…')}
+                      {audit.blobId && <ArrowRight className="w-3 h-3 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />}
+                    </span>
+                  </div>
+                </SpotlightCard>
+              </Reveal>
             ))}
           </div>
         ) : (
-          <FadeIn delay={0.2} className="text-center py-14 rounded-xl border border-dashed border-zinc-800">
-            <Shield className="w-8 h-8 text-zinc-800 mx-auto mb-3" />
-            <p className="text-sm text-zinc-600">No audits yet — be the first!</p>
-            <button
-              onClick={() => auditSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
-              className="mt-3 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
-            >
-              Run your first audit →
-            </button>
-          </FadeIn>
+          <Reveal delay={0.15}>
+            <div className="text-center py-16 rounded-2xl border border-dashed border-zinc-800 bg-white/[0.01]">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-jade-500/15 to-champagne-400/5 border border-jade-400/15 flex items-center justify-center mx-auto mb-4">
+                <Shield className="w-6 h-6 text-jade-400/60" />
+              </div>
+              <p className="text-sm text-zinc-500">No audits yet — be the first!</p>
+              <button
+                onClick={() => auditSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
+                className="mt-3 text-xs text-jade-400 hover:text-jade-300 transition-colors font-medium"
+              >
+                Run your first audit →
+              </button>
+            </div>
+          </Reveal>
         )}
       </section>
     </main>

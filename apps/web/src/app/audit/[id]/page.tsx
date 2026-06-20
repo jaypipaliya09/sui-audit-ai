@@ -19,36 +19,39 @@ export default function AuditProgressPage({ params }: { params: { id: string } }
   };
 
   return (
-    <main className="min-h-screen bg-[#09090b] flex flex-col items-center justify-center p-4 pt-20">
+    <main className="min-h-screen bg-obsidian flex flex-col items-center justify-center p-4 pt-20 relative overflow-hidden">
+      {/* Ambient glowing orb */}
+      <div aria-hidden className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] rounded-full blur-[150px] bg-gradient-to-br from-emerald-500/10 to-transparent pointer-events-none" />
+
       {/* Header */}
-      <div className="w-full max-w-2xl text-center mb-10 animate-fadeIn">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-indigo-500/20 bg-indigo-500/8 text-indigo-400 text-xs font-medium mb-4">
-          <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+      <div className="relative z-10 w-full max-w-2xl text-center mb-10 animate-fadeInUp">
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-xs font-bold uppercase tracking-widest mb-6 shadow-[0_0_20px_rgba(16,185,129,0.15)]">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-[glow-pulse_2s_infinite]" />
           AI Analysis Running
         </div>
-        <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight mb-2">
-          Auditing Your Contract
+        <h1 className="text-3xl md:text-5xl font-display font-medium text-ivory tracking-tight mb-4 drop-shadow-md">
+          Auditing Your <span className="lux-gradient">Contract</span>
         </h1>
-        <p className="text-xs text-zinc-500 max-w-md mx-auto">
-          Claude Sonnet 4 is analyzing your contract for security vulnerabilities.
-          Keep this tab open.
+        <p className="text-sm text-zinc-400 max-w-md mx-auto leading-relaxed">
+          Claude Sonnet 4 is deeply analyzing your contract for security vulnerabilities.
+          Please keep this tab open.
         </p>
       </div>
 
       {/* Progress */}
-      <div className="w-full max-w-xl animate-fadeInUp" style={{ animationDelay: '0.15s' }}>
+      <div className="relative z-10 w-full max-w-xl animate-fadeInUp glass-panel p-6" style={{ animationDelay: '0.15s' }}>
         <AuditProgress auditId={params.id} onComplete={handleComplete} />
       </div>
 
       {/* Info cards */}
-      <div className="w-full max-w-xl mt-8 grid grid-cols-2 sm:grid-cols-4 gap-2 animate-fadeInUp" style={{ animationDelay: '0.3s' }}>
+      <div className="relative z-10 w-full max-w-xl mt-8 grid grid-cols-2 sm:grid-cols-4 gap-3 animate-fadeInUp" style={{ animationDelay: '0.3s' }}>
         {AUDIT_FACTS.map((fact) => (
           <div
             key={fact.text}
-            className="flex flex-col items-center gap-2 p-3 rounded-lg border border-zinc-800/50 bg-zinc-900/50 text-center"
+            className="flex flex-col items-center justify-center gap-2.5 p-4 rounded-xl border border-white/[0.04] bg-white/[0.01] text-center hover:bg-white/[0.03] transition-colors"
           >
-            <fact.icon className="w-3.5 h-3.5 text-zinc-600" />
-            <p className="text-[11px] text-zinc-600 leading-snug">{fact.text}</p>
+            <fact.icon className="w-4 h-4 text-emerald-500/60" />
+            <p className="text-[10px] uppercase font-semibold tracking-wide text-zinc-500 leading-snug">{fact.text}</p>
           </div>
         ))}
       </div>

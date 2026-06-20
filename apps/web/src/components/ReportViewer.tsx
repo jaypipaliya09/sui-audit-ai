@@ -113,40 +113,41 @@ export function ReportViewer({ audit }: ReportViewerProps) {
   return (
     <div className="w-full max-w-4xl mx-auto space-y-6">
       {/* Header */}
-      <div className="rounded-lg surface p-5 sm:p-6 flex flex-col md:flex-row md:items-start justify-between gap-4 animate-fadeIn">
+      <div className="glass-panel p-6 sm:p-8 flex flex-col md:flex-row md:items-start justify-between gap-5 animate-fadeIn border border-emerald-500/10 shadow-[0_0_30px_rgba(16,185,129,0.05)]">
         <div>
-          <h1 className="text-xl font-bold text-white mb-1.5">{audit.contractName}</h1>
-          <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-500">
-            <span>
-              <span className="text-zinc-400">Audited:</span>{' '}
+          <h1 className="text-2xl font-display font-medium text-ivory mb-2 tracking-tight">{audit.contractName}</h1>
+          <div className="flex flex-wrap items-center gap-3 text-[13px] font-medium text-zinc-400">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500/50" />
+              Audited{' '}
               {new Date(audit.createdAt).toLocaleDateString(undefined, {
                 year: 'numeric', month: 'short', day: 'numeric',
               })}
             </span>
-            <span className="text-zinc-700">•</span>
+            <span className="text-zinc-600">•</span>
             <span>{summary.moduleCount} modules</span>
-            <span className="text-zinc-700">•</span>
+            <span className="text-zinc-600">•</span>
             <span>{summary.lineCount} lines</span>
             {audit.contractHash && (
               <>
-                <span className="text-zinc-700">•</span>
-                <span className="flex items-center gap-1.5 font-mono text-[11px] bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded text-zinc-400">
+                <span className="text-zinc-600">•</span>
+                <span className="flex items-center gap-2 font-mono text-[11px] bg-white/[0.03] border border-white/[0.05] px-2.5 py-1 rounded-md text-zinc-300">
                   {audit.contractHash.substring(0, 10)}...{audit.contractHash.substring(audit.contractHash.length - 8)}
-                  <button onClick={handleCopyHash} className="hover:text-white transition-colors" title="Copy full hash">
-                    {hashCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                  <button onClick={handleCopyHash} className="p-1 hover:bg-white/5 rounded text-zinc-500 hover:text-emerald-400 transition-colors" title="Copy full hash">
+                    {hashCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                   </button>
                 </span>
               </>
             )}
           </div>
         </div>
-        <div className="flex flex-col items-start md:items-end gap-2.5">
+        <div className="flex flex-col items-start md:items-end gap-3">
           <RiskBadge level={audit.overallRisk} />
           <button
             onClick={handleShare}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white text-xs font-medium transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06] text-zinc-400 hover:text-ivory text-[13px] font-medium transition-all"
           >
-            {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Share2 className="w-3 h-3" />}
+            {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5" />}
             {copied ? 'Copied!' : 'Share'}
           </button>
         </div>
@@ -157,71 +158,73 @@ export function ReportViewer({ audit }: ReportViewerProps) {
         {SEVERITY_COUNTS.map((s) => (
           <div
             key={s.label}
-            className={`px-3 py-1.5 ${s.bg} border ${s.border} rounded-md flex items-center gap-1.5`}
+            className={`px-3 py-1.5 ${s.bg} border ${s.border} rounded-lg flex items-center gap-2 shadow-sm`}
           >
-            <span className={`font-semibold text-sm ${s.color}`}>{s.count}</span>
-            <span className={`text-xs ${s.color}`}>{s.label}</span>
+            <span className={`font-bold text-[15px] ${s.color}`}>{s.count}</span>
+            <span className={`text-[13px] font-medium tracking-wide uppercase ${s.color} opacity-80`}>{s.label}</span>
           </div>
         ))}
       </div>
 
       {/* Executive Summary */}
-      <div className="rounded-lg surface p-5 animate-fadeInUp" style={{ animationDelay: '0.15s' }}>
-        <h2 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
-          <ShieldCheck className="w-4 h-4 text-purple-400" />
+      <div className="glass-panel p-6 sm:p-8 animate-fadeInUp" style={{ animationDelay: '0.15s' }}>
+        <h2 className="text-[13px] font-bold text-indigo-400/90 uppercase tracking-[0.15em] mb-4 flex items-center gap-2">
+          <ShieldCheck className="w-4 h-4" />
           Executive Summary
         </h2>
         {isClean ? (
-          <div className="bg-emerald-500/[0.04] border border-emerald-500/15 rounded-lg p-5 text-center">
-            <CheckCircle2 className="w-10 h-10 text-emerald-400 mx-auto mb-2" />
-            <h3 className="text-base font-semibold text-emerald-400 mb-1.5">No Vulnerabilities Found</h3>
-            <p className="text-xs text-emerald-300/60 max-w-lg mx-auto leading-relaxed">{summary.executiveSummary}</p>
+          <div className="bg-emerald-500/[0.03] border border-emerald-500/20 rounded-xl p-8 text-center shadow-[inset_0_0_40px_rgba(16,185,129,0.03)]">
+            <CheckCircle2 className="w-12 h-12 text-emerald-400 mx-auto mb-3 filter drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+            <h3 className="text-xl font-display font-medium text-emerald-300 mb-2">No Vulnerabilities Found</h3>
+            <p className="text-[15px] text-emerald-100/60 max-w-xl mx-auto leading-relaxed font-light">{summary.executiveSummary}</p>
           </div>
         ) : (
-          <p className="text-sm text-zinc-400 leading-relaxed">{summary.executiveSummary}</p>
+          <p className="text-[15px] text-zinc-300 leading-relaxed font-light">{summary.executiveSummary}</p>
         )}
       </div>
 
       {/* Badge embed */}
       {audit.blobId && (
-        <div className="rounded-lg surface p-5 animate-fadeInUp" style={{ animationDelay: '0.2s' }}>
+        <div className="glass-panel p-6 sm:p-8 animate-fadeInUp" style={{ animationDelay: '0.2s' }}>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-medium text-white flex items-center gap-2">
-              <Code className="w-4 h-4 text-blue-400" />
+            <h2 className="text-[13px] font-bold text-blue-400/90 uppercase tracking-[0.15em] flex items-center gap-2">
+              <Code className="w-4 h-4" />
               Embeddable Badge
             </h2>
-            <span className="text-[11px] text-zinc-600 bg-zinc-800/60 px-2 py-0.5 rounded-full border border-zinc-700/50">
+            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest bg-white/[0.04] px-2.5 py-1 rounded-md border border-white/[0.05]">
               README ready
             </span>
           </div>
-          <p className="text-xs text-zinc-500 mb-4">
-            Drop this into your GitHub README to show your contract's audit status.
+          <p className="text-[13px] text-zinc-400 mb-5">
+            Drop this into your GitHub README to proudly display your security posture.
           </p>
 
           {/* Preview row */}
-          <div className="flex items-center gap-3 mb-4 p-3 rounded-lg bg-zinc-900/60 border border-zinc-800">
-            <span className="text-[11px] text-zinc-600 shrink-0">Preview</span>
-            <div className="h-px flex-1 bg-zinc-800" />
-            <AuditBadge risk={audit.overallRisk} />
+          <div className="flex items-center gap-4 mb-5 p-4 rounded-xl bg-obsidian border border-white/[0.04]">
+            <span className="text-[11px] font-bold uppercase tracking-widest text-zinc-600 shrink-0">Preview</span>
+            <div className="h-px flex-1 bg-gradient-to-r from-white/[0.02] via-white/[0.08] to-white/[0.02]" />
+            <div className="drop-shadow-[0_0_15px_rgba(0,0,0,0.5)]">
+              <AuditBadge risk={audit.overallRisk} />
+            </div>
           </div>
 
           {/* Markdown snippet */}
-          <div className="relative rounded-lg border border-zinc-800 bg-zinc-950 overflow-hidden">
-            <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-800/60 bg-zinc-900/40">
-              <span className="text-[10px] font-medium text-zinc-600 uppercase tracking-wider">Markdown</span>
+          <div className="relative rounded-xl border border-white/[0.06] bg-obsidian overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.04] bg-[#0a0a0c]/80 backdrop-blur-sm">
+              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Markdown</span>
               <button
                 onClick={handleCopyBadge}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wide transition-all ${
                   badgeCopied
                     ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
-                    : 'bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700 border border-zinc-700'
+                    : 'bg-white/[0.03] text-zinc-400 hover:text-ivory hover:bg-white/[0.06] border border-white/[0.05]'
                 }`}
               >
-                {badgeCopied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                {badgeCopied ? 'Copied!' : 'Copy'}
+                {badgeCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                {badgeCopied ? 'Copied' : 'Copy'}
               </button>
             </div>
-            <pre className="px-4 py-3 text-[11px] font-mono text-zinc-400 overflow-x-auto whitespace-pre-wrap break-all leading-relaxed">
+            <pre className="px-5 py-4 text-[12px] font-mono text-zinc-400 overflow-x-auto whitespace-pre-wrap break-all leading-relaxed">
               {`[![MoveAuditor](${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/badge/${audit.blobId})](${currentUrl})`}
             </pre>
           </div>
@@ -230,15 +233,17 @@ export function ReportViewer({ audit }: ReportViewerProps) {
 
       {/* Findings */}
       {!isClean && findings && findings.length > 0 && (
-        <div className="space-y-5 animate-fadeInUp" style={{ animationDelay: '0.25s' }}>
-          <SeverityChart findings={findings} />
+        <div className="space-y-6 animate-fadeInUp" style={{ animationDelay: '0.25s' }}>
+          <div className="glass-panel p-6">
+            <SeverityChart findings={findings} />
+          </div>
 
           <div>
-            <h2 className="text-sm font-medium text-white flex items-center gap-2 mb-3">
-              <AlertCircle className="w-4 h-4 text-red-400" />
+            <h2 className="text-[13px] font-bold text-red-400/90 uppercase tracking-[0.15em] flex items-center gap-2 mb-4 ml-1">
+              <AlertCircle className="w-4 h-4" />
               Detailed Findings ({findings.length})
             </h2>
-            <div className="space-y-2">
+            <div className="space-y-3">
               {findings.map((finding) => (
                 <FindingCard key={finding.id} finding={finding} />
               ))}
@@ -249,35 +254,37 @@ export function ReportViewer({ audit }: ReportViewerProps) {
 
       {/* Gas Analysis */}
       {summary.gasAnalysis && (
-        <div className="rounded-lg surface p-5">
-          <h2 className="text-sm font-medium text-white mb-4 flex items-center gap-2">
-            <Zap className="w-4 h-4 text-amber-400" />
+        <div className="glass-panel p-6 sm:p-8 animate-fadeInUp" style={{ animationDelay: '0.3s' }}>
+          <h2 className="text-[13px] font-bold text-amber-400/90 uppercase tracking-[0.15em] mb-6 flex items-center gap-2">
+            <Zap className="w-4 h-4" />
             Gas & Optimization
           </h2>
-          <div className="grid md:grid-cols-2 gap-6">
-            <div>
-              <h3 className="text-[11px] text-zinc-500 font-medium uppercase tracking-wider mb-2">Expensive Patterns</h3>
-              <ul className="space-y-1.5">
+          <div className="grid md:grid-cols-2 gap-8">
+            <div className="bg-white/[0.01] rounded-xl p-5 border border-white/[0.03]">
+              <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">Expensive Patterns</h3>
+              <ul className="space-y-2.5">
                 {summary.gasAnalysis.expensivePatterns.map((item, i) => (
-                  <li key={i} className="text-xs text-red-400/70 flex items-start gap-2">
-                    <span className="text-red-500 mt-0.5">•</span> {item}
+                  <li key={i} className="text-[13px] text-red-400/80 flex items-start gap-3">
+                    <span className="text-red-500/80 mt-0.5 font-bold">•</span>
+                    <span className="leading-relaxed">{item}</span>
                   </li>
                 ))}
                 {summary.gasAnalysis.expensivePatterns.length === 0 && (
-                  <li className="text-xs text-zinc-600">None detected.</li>
+                  <li className="text-[13px] text-zinc-600 italic">None detected.</li>
                 )}
               </ul>
             </div>
-            <div>
-              <h3 className="text-[11px] text-zinc-500 font-medium uppercase tracking-wider mb-2">Suggestions</h3>
-              <ul className="space-y-1.5">
+            <div className="bg-white/[0.01] rounded-xl p-5 border border-white/[0.03]">
+              <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">Suggestions</h3>
+              <ul className="space-y-2.5">
                 {summary.gasAnalysis.optimizationSuggestions.map((item, i) => (
-                  <li key={i} className="text-xs text-emerald-400/70 flex items-start gap-2">
-                    <span className="text-emerald-500 mt-0.5">✓</span> {item}
+                  <li key={i} className="text-[13px] text-emerald-400/80 flex items-start gap-3">
+                    <span className="text-emerald-500/80 mt-0.5 font-bold">✓</span>
+                    <span className="leading-relaxed">{item}</span>
                   </li>
                 ))}
                 {summary.gasAnalysis.optimizationSuggestions.length === 0 && (
-                  <li className="text-xs text-zinc-600">No suggestions.</li>
+                  <li className="text-[13px] text-zinc-600 italic">No suggestions.</li>
                 )}
               </ul>
             </div>
@@ -287,15 +294,15 @@ export function ReportViewer({ audit }: ReportViewerProps) {
 
       {/* Recommendations */}
       {summary.overallRecommendations && summary.overallRecommendations.length > 0 && (
-        <div className="rounded-lg surface p-5">
-          <h2 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
-            <Lightbulb className="w-4 h-4 text-indigo-400" />
+        <div className="glass-panel p-6 sm:p-8 animate-fadeInUp" style={{ animationDelay: '0.35s' }}>
+          <h2 className="text-[13px] font-bold text-indigo-400/90 uppercase tracking-[0.15em] mb-5 flex items-center gap-2">
+            <Lightbulb className="w-4 h-4" />
             Recommendations
           </h2>
-          <ul className="space-y-2">
+          <ul className="space-y-3">
             {summary.overallRecommendations.map((rec, i) => (
-              <li key={i} className="text-xs text-zinc-400 flex items-start gap-2.5">
-                <span className="bg-zinc-800 text-zinc-500 rounded-full w-5 h-5 flex items-center justify-center shrink-0 text-[10px] font-semibold mt-0.5">
+              <li key={i} className="text-[14px] text-zinc-300 flex items-start gap-4">
+                <span className="bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-full w-6 h-6 flex items-center justify-center shrink-0 text-[11px] font-bold mt-0.5">
                   {i + 1}
                 </span>
                 <span className="leading-relaxed">{rec}</span>

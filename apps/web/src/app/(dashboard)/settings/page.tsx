@@ -41,12 +41,12 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6 max-w-xl animate-fadeIn">
       <div>
-        <h1 className="text-lg font-semibold text-white">Settings</h1>
-        <p className="text-xs text-zinc-500 mt-0.5">Manage your profile and preferences.</p>
+        <h1 className="text-2xl font-display font-medium text-ivory tracking-tight">Settings</h1>
+        <p className="text-xs text-zinc-500 mt-1">Manage your profile and preferences.</p>
       </div>
 
       {/* Profile */}
-      <div className="rounded-lg surface p-5">
+      <div className="glass-panel p-5 animate-fadeInUp">
         <h3 className="text-sm font-medium text-white mb-4 flex items-center gap-2">
           <User className="w-4 h-4 text-zinc-400" />
           Profile
@@ -88,7 +88,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Badge Embed */}
-      <div className="rounded-lg surface p-5">
+      <div className="glass-panel p-5 animate-fadeInUp" style={{ animationDelay: '0.08s' }}>
         <h3 className="text-sm font-medium text-white mb-2 flex items-center gap-2">
           <Code className="w-4 h-4 text-blue-400" />
           Embeddable Badge

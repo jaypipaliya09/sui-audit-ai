@@ -59,8 +59,8 @@ export default function HistoryPage() {
   return (
     <div className="space-y-5 animate-fadeIn">
       <div>
-        <h1 className="text-lg font-semibold text-white">Audit History</h1>
-        <p className="text-xs text-zinc-500 mt-0.5">Browse all your past audits.</p>
+        <h1 className="text-2xl font-display font-medium text-ivory tracking-tight">Audit History</h1>
+        <p className="text-xs text-zinc-500 mt-1">Browse all your past audits.</p>
       </div>
 
       {/* Filters row */}
@@ -82,7 +82,7 @@ export default function HistoryPage() {
               onClick={() => setRiskFilter(filter)}
               className={`px-2.5 py-1.5 rounded-md text-[11px] font-medium transition-colors whitespace-nowrap ${
                 riskFilter === filter
-                  ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                  ? 'bg-jade-500/10 text-jade-400 border border-jade-500/20'
                   : 'text-zinc-600 border border-zinc-800 hover:text-zinc-400 hover:border-zinc-700'
               }`}
             >
@@ -137,7 +137,7 @@ export default function HistoryPage() {
                         disabled={!selectedIds.includes(audit.id) && selectedIds.length >= 2}
                         checked={selectedIds.includes(audit.id)}
                         onChange={() => toggleSelection(audit.id)}
-                        className="w-3.5 h-3.5 rounded border-zinc-700 text-indigo-500 focus:ring-indigo-500/20 focus:ring-offset-0 bg-zinc-900"
+                        className="w-3.5 h-3.5 rounded border-zinc-700 text-jade-500 focus:ring-jade-500/20 focus:ring-offset-0 bg-zinc-900"
                       />
                     </td>
                   )}
@@ -161,7 +161,7 @@ export default function HistoryPage() {
                   </td>
                   <td className="px-4 py-3 text-right">
                     {audit.blobId ? (
-                      <Link href={`/report/${audit.blobId}`} className="text-xs text-indigo-400 hover:text-indigo-300 font-medium">
+                      <Link href={`/report/${audit.blobId}`} className="text-xs text-jade-400 hover:text-jade-300 font-medium">
                         View →
                       </Link>
                     ) : (
@@ -204,7 +204,7 @@ export default function HistoryPage() {
 
       {/* Compare floating bar */}
       {compareMode && selectedIds.length > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-zinc-900 border border-zinc-800 shadow-2xl shadow-black/40 rounded-lg px-5 py-3 flex items-center gap-4 z-50 animate-fadeInUp">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 glass-panel shadow-premium-lg px-5 py-3 flex items-center gap-4 z-50 animate-fadeInUp">
           <span className="text-xs text-zinc-400">
             <span className="text-white font-medium">{selectedIds.length}</span> of 2 selected
           </span>

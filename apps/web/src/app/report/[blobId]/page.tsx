@@ -48,19 +48,25 @@ export default async function ReportPage({
   }
 
   return (
-    <main className="min-h-screen bg-[#09090b] text-gray-200 pt-20 pb-20 px-4 sm:px-6">
+    <main className="min-h-screen bg-obsidian text-ivory pt-24 pb-20 px-4 sm:px-6 relative overflow-hidden">
+      {/* Dynamic Background Effect */}
+      <div aria-hidden className="absolute top-0 right-1/4 w-[600px] h-[400px] rounded-full blur-[140px] pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.08), transparent 70%)' }} />
+      <div aria-hidden className="absolute top-40 -left-20 w-[500px] h-[500px] rounded-full blur-[130px] pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(77,162,255,0.05), transparent 70%)' }} />
+
       {/* Breadcrumb */}
-      <div className="max-w-4xl mx-auto mb-6">
+      <div className="max-w-4xl mx-auto mb-8 relative z-10">
         <Link
           href="/"
-          className="inline-flex items-center gap-1 text-xs text-zinc-600 hover:text-zinc-300 transition-colors"
+          className="inline-flex items-center gap-1.5 text-[13px] font-medium text-zinc-500 hover:text-ivory transition-all group"
         >
-          <ChevronLeft className="w-3.5 h-3.5" />
+          <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
           Back to Home
         </Link>
       </div>
 
-      <ReportViewer audit={audit} />
+      <div className="relative z-10">
+        <ReportViewer audit={audit} />
+      </div>
     </main>
   );
 }

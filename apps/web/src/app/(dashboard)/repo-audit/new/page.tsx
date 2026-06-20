@@ -171,7 +171,7 @@ export default function NewRepoAuditPage() {
           }`}
         >
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-sm">
+            <div className="w-8 h-8 rounded-full bg-jade-500/20 text-jade-400 flex items-center justify-center font-bold text-sm">
               2
             </div>
             <h2 className="text-lg font-semibold text-white">Configure & Submit</h2>
@@ -192,7 +192,7 @@ export default function NewRepoAuditPage() {
                     onClick={() => setProjectTrack(track.id)}
                     className={`p-3 text-left rounded-xl border text-sm transition-all ${
                       projectTrack === track.id
-                        ? 'bg-indigo-500/10 border-indigo-500 text-indigo-300'
+                        ? 'bg-jade-500/10 border-jade-500 text-jade-300'
                         : 'bg-[#0f0f0f] border-[#2a2a2a] text-gray-400 hover:border-gray-600'
                     }`}
                   >
@@ -212,7 +212,7 @@ export default function NewRepoAuditPage() {
             <button
               onClick={handleSubmit}
               disabled={isSubmitting || !scanResult}
-              className="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-800 disabled:text-gray-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-indigo-500/20"
+              className="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-jade-600 hover:bg-jade-500 disabled:bg-gray-800 disabled:text-gray-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-jade-500/20"
             >
               {isSubmitting ? (
                 <>

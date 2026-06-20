@@ -40,23 +40,26 @@ export default function VerifyPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#09090b] pt-28 pb-20">
-      <div className="max-w-2xl mx-auto px-4 sm:px-6">
+    <div className="min-h-screen bg-obsidian pt-28 pb-20 relative overflow-hidden">
+      {/* Ambient glow */}
+      <div aria-hidden className="absolute -top-20 left-1/2 -translate-x-1/2 w-[640px] h-[360px] rounded-full blur-[140px] pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.07), transparent 70%)' }} />
+      <div aria-hidden className="absolute top-0 inset-x-0 h-px rule-champagne pointer-events-none" />
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 relative z-10">
 
         <FadeIn className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-indigo-500/20 bg-indigo-500/8 text-indigo-400 text-xs font-medium mb-5">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-jade-400/20 bg-jade-500/[0.06] text-jade-300 text-xs font-medium mb-5">
             <Shield className="w-3 h-3" />
             Sui On-Chain Registry
           </div>
-          <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight mb-3">
-            Verify an Audit
+          <h1 className="text-3xl md:text-5xl font-display font-medium text-ivory tracking-[-0.02em] mb-4">
+            Verify an <span className="lux-gradient">Audit</span>
           </h1>
-          <p className="text-sm text-zinc-500 max-w-lg mx-auto leading-relaxed">
+          <p className="text-sm text-zinc-400 max-w-lg mx-auto leading-relaxed">
             Enter a Contract Hash to independently verify that it was audited and anchored on the Sui blockchain.
           </p>
         </FadeIn>
 
-        <FadeIn delay={0.1} className="rounded-xl surface p-5 sm:p-6">
+        <FadeIn delay={0.1} className="glass-panel p-5 sm:p-6 shadow-premium-md">
           <form onSubmit={handleVerify} className="space-y-4">
             <div>
               <label htmlFor="hash" className="block text-xs font-medium text-zinc-400 mb-1.5">
