@@ -1,71 +1,83 @@
 # Executive Summary
-This registry module anchors off-chain AI audit results on-chain in a shared object, but it performs no access control or input validation on the write path, so any account can write arbitrary, attacker-controlled audit verdicts. The most serious problem is that `table::add` aborts on duplicate keys, letting an attacker permanently squat a contract hash with a forged record and block the legitimate audit from ever being recorded. Because the on-chain record fully trusts unverified off-chain AI output, the registry cannot be relied upon as a source of truth without authorization and an upsert/overwrite path.
+The registry contract anchors smart-contract audit records on-chain but provides zero access control: any address may write any audit result for any contract hash, making the entire trust model trivially bypassable. A front-running DoS vector allows an adversary to permanently block legitimate audit records for any target hash. Combined with unvalidated input fields and no revocation path, the contract cannot reliably serve its stated purpose of providing trustworthy on-chain audit attestations for a payments/wallet context.
 
 # Overall Risk Assessment
-The overall risk of the contract is **HIGH** due to the lack of access control, input validation, and authentication of off-chain AI results.
+The overall risk of the contract is **CRITICAL**. The lack of access control, the possibility of front-running DoS attacks, and the absence of input validation and revocation mechanisms make the contract highly vulnerable to attacks and misuse.
 
 # Detailed Findings
-## High Severity Findings
-### FIND-001: Missing access control on anchor_audit allows anyone to forge audit records
-* **Severity:** HIGH
+## Critical Findings
+### FIND-001: Permissionless anchor_audit — anyone can fabricate audit results
+* **Severity:** CRITICAL
 * **Category:** ACCESS_CONTROL
-* **Location:** move_auditor::registry, function anchor_audit, lines 45-72
-* **Description:** anchor_audit is a public entry function with no capability check, allow-list, or admin gate. The auditor_address field is populated from tx_context::sender(ctx), meaning the 'auditor' is simply whoever submits the transaction. Any address can therefore anchor a record for any contract_hash with any overall_risk and any walrus_blob_id.
-* **Impact:** An attacker can register a malicious contract as overall_risk=0 (Clean), or smear a legitimate contract as Critical, or point walrus_blob_id at a fabricated report. Any consumer that calls verify_audit and trusts the result can be deceived. The registry has no integrity guarantee.
-* **Recommendation:** Introduce an AuditorCap (capability object) minted in init and transferred to the trusted auditor service, and require it as a parameter to anchor_audit. Alternatively maintain an on-chain allow-list of authorized auditor addresses and assert membership. Do not derive trust solely from tx sender.
+* **Location:** move_auditor::registry, function anchor_audit, lines 43-67
+* **Description:** The anchor_audit function is public and has no access control, allowing any address to write any audit result for any contract hash.
+* **Impact:** An attacker can anchor a fraudulent 'CLEAN' record for any malicious payment contract before the real auditor does, causing downstream consumers of verify_audit to trust the malicious contract.
+* **Recommendation:** Introduce a capability object (e.g., AuditorCap) minted only by init and transferred to the trusted auditor address. Require this capability as an argument to anchor_audit.
 
-### FIND-002: Duplicate-key abort enables permanent record squatting and re-audit DoS
+### FIND-002: Front-running DoS permanently blocks legitimate audit records
 * **Severity:** HIGH
 * **Category:** DOS
-* **Location:** move_auditor::registry, function anchor_audit, lines 56-63
-* **Description:** The record is stored with table::add(&mut registry.records, contract_hash, ...). table::add aborts if the key already exists. Combined with the lack of access control (FIND-001), the first writer of any contract_hash owns that slot forever — there is no update, upsert, or remove path anywhere in the module.
-* **Impact:** An attacker who front-runs or simply gets there first can pin a forged verdict to a contract_hash that can never be corrected. A legitimate re-audit (e.g. after the auditor improves, or to refresh a stale verdict) is impossible without it aborting. This is both an integrity lock-in and a denial-of-service against the audit workflow.
-* **Recommendation:** Decide on intended semantics. If records should be updatable by an authorized auditor, check table::contains and use table::remove + table::add (or a mutable borrow) to overwrite. If records are immutable by design, the missing access control (FIND-001) must be fixed first so an attacker cannot pre-occupy keys, and consider keying by (contract_hash, version) to allow new audits over time.
+* **Location:** move_auditor::registry, function anchor_audit, line 53
+* **Description:** An adversary monitoring the mempool can observe a pending legitimate anchor transaction, extract the contract_hash, and submit their own anchor_audit for the same hash with a higher gas price.
+* **Impact:** Legitimate audits for targeted contracts can be blocked indefinitely at low cost.
+* **Recommendation:** Either use table::upsert semantics (add if absent, overwrite if present) restricted to the capability holder, or store a vector of AuditRecord per hash to support versioned audits.
 
-## Medium Severity Findings
-### FIND-003: Unverified off-chain AI result anchored on-chain (trust boundary / replay)
+## Medium Findings
+### FIND-003: overall_risk accepts out-of-range values (>4)
 * **Severity:** MEDIUM
 * **Category:** LOGIC
-* **Location:** move_auditor::registry, function anchor_audit, lines 45-72
-* **Description:** overall_risk and walrus_blob_id are off-chain AI model outputs passed in as raw parameters with no signature, attestation, or binding between contract_hash and the Walrus blob. The contract has no way to confirm that the blob at walrus_blob_id actually corresponds to contract_hash or that the risk score was produced by the intended model. There is also no nonce/epoch binding, so a previously valid (risk, blob) tuple for one contract can be replayed for another.
-* **Impact:** On the AI track this is the core trust-boundary weakness: a caller can inject arbitrary AI verdicts or replay an old/benign audit result, and the chain records it as authoritative. Downstream dApps treating the anchored record as proof of audit are misled.
-* **Recommendation:** Bind and authenticate the off-chain result: require the AuditorCap (FIND-001), and ideally verify a signature from the auditing service over the tuple (contract_hash, walrus_blob_id, overall_risk, audited_at/nonce). Emit and store the signer/model identity so consumers can scope their trust.
+* **Location:** move_auditor::registry, function anchor_audit, lines 48, 55
+* **Description:** The overall_risk field is documented as 0=Clean through 4=Critical, but no assertion enforces this range.
+* **Impact:** Off-chain dashboards and on-chain integrations that switch on overall_risk may produce incorrect output or panic.
+* **Recommendation:** Add an assertion to enforce the range: assert!(overall_risk <= 4, EInvalidRiskLevel);
 
-## Low Severity Findings
-### FIND-004: overall_risk value is not range-validated
-* **Severity:** LOW
-* **Category:** LOGIC
-* **Location:** move_auditor::registry, function anchor_audit, lines 50, 59
-* **Description:** overall_risk is documented as 0..=4 (Clean..Critical) but is accepted as any u8. No assertion enforces the valid range.
-* **Impact:** Out-of-range values (e.g. 200) get stored and emitted, breaking off-chain consumers and dashboards that map the integer to a risk label, and undermining any on-chain logic that branches on the score.
-* **Recommendation:** Add assert!(overall_risk <= 4, E_INVALID_RISK); at the start of anchor_audit, with a named error constant.
-
-### FIND-005: No validation of contract_hash / walrus_blob_id length or emptiness
-* **Severity:** LOW
-* **Category:** LOGIC
-* **Location:** move_auditor::registry, function anchor_audit, lines 47-48
-* **Description:** contract_hash and walrus_blob_id are arbitrary vector<u8> with no length checks. An empty vector or a wrong-length value is accepted, and an empty contract_hash can occupy the table key.
-* **Impact:** Garbage or empty keys/blobs pollute the registry, and an empty contract_hash key can be squatted, reducing data quality and reliability of verify_audit lookups.
-* **Recommendation:** Assert expected lengths (e.g. 32 bytes for a SHA-256 contract hash) and non-empty walrus_blob_id before insertion.
-
-## Informational Findings
-### FIND-006: Redundant storage of contract_hash inflates per-record storage cost
-* **Severity:** INFO
+### FIND-004: Unbounded input vectors enable gas griefing and storage bloat
+* **Severity:** MEDIUM
 * **Category:** GAS
-* **Location:** move_auditor::registry, function anchor_audit, lines 56-63
-* **Description:** contract_hash is used as the Table key and is also stored again inside the AuditRecord value. Each record persists the hash twice.
-* **Impact:** Higher storage rebate footprint and per-audit gas cost; for a registry intended to scale to many audits this is pure overhead with no functional benefit since the key already identifies the record.
-* **Recommendation:** Drop the contract_hash field from AuditRecord (the Table key already provides it), or remove it from the value if it is only needed for event emission.
+* **Location:** move_auditor::registry, function anchor_audit, lines 44-45
+* **Description:** contract_hash and walrus_blob_id are accepted as vector<u8> with no length validation.
+* **Impact:** Shared object storage bloat degrades performance for all users.
+* **Recommendation:** Enforce maximum lengths: assert!(vector::length(&contract_hash) == 32, EInvalidHash);
+
+### FIND-005: No audit update or revocation mechanism
+* **Severity:** MEDIUM
+* **Category:** LOGIC
+* **Location:** move_auditor::registry, function null, lines 43-67
+* **Description:** Once an AuditRecord is anchored, the contract provides no function to update, supersede, or revoke it.
+* **Impact:** Stale or incorrect audit records remain authoritative on-chain indefinitely.
+* **Recommendation:** Add an update_audit entry function gated by AuditorCap to allow correction of stale or erroneous records.
+
+## Low Findings
+### FIND-006: AuditAnchored event omits auditor_address
+* **Severity:** LOW
+* **Category:** OTHER
+* **Location:** move_auditor::registry, function anchor_audit, lines 26-30, 61-66
+* **Description:** The AuditAnchored event does not include the auditor_address.
+* **Impact:** Reduced auditability and accountability.
+* **Recommendation:** Add auditor_address to the AuditAnchored struct and populate it from ctx sender in anchor_audit.
+
+### FIND-007: walrus_blob_id not verified to reference an existing blob
+* **Severity:** LOW
+* **Category:** ASSET_SAFETY
+* **Location:** move_auditor::registry, function anchor_audit, lines 45, 56
+* **Description:** The walrus_blob_id field is accepted as an opaque byte vector with no on-chain verification.
+* **Impact:** The on-chain record and off-chain audit report can be decoupled.
+* **Recommendation:** At minimum, document the expected encoding of walrus_blob_id and validate its byte length.
+
+### FIND-008: contract_hash key not validated as canonical hash format
+* **Severity:** LOW
+* **Category:** LOGIC
+* **Location:** move_auditor::registry, function anchor_audit, lines 44, 52-53
+* **Description:** contract_hash is used as the table key and is semantically intended to be a deterministic hash of the audited contract bytecode, but no length or format check is enforced.
+* **Impact:** verify_audit can return false for a legitimately audited contract if the caller used a different encoding.
+* **Recommendation:** Enforce assert!(vector::length(&contract_hash) == 32, EInvalidHash) for SHA-256.
 
 # Recommendations and Next Steps
-To address the identified findings and improve the security and reliability of the contract, the following steps are recommended:
-1. **Introduce access control**: Implement an AuditorCap capability or an on-chain allow-list to restrict anchor_audit to authorized auditors.
-2. **Fix duplicate-key behavior**: Decide on intended semantics and implement either updatable records or versioned keys to prevent permanent squatting.
-3. **Authenticate off-chain AI results**: Bind and verify the off-chain result using a signature from the auditing service.
-4. **Validate inputs**: Assert expected lengths and ranges for contract_hash, walrus_blob_id, and overall_risk.
-5. **Optimize storage**: Remove redundant storage of contract_hash to reduce per-record storage cost.
-6. **Consider gas optimization**: Implement input validation early to abort cheaply before performing storage writes, and minimize expensive patterns.
-By addressing these findings and implementing the recommended changes, the security and reliability of the contract can be significantly improved.
+1. **CRITICAL FIRST:** Gate anchor_audit behind a capability object (AuditorCap) created in init and held by the trusted auditor.
+2. Add input validation (hash length == 32, risk value <= 4, blob ID length bounded) before writing any record to prevent malformed data and gas griefing.
+3. Implement an update_audit function gated by AuditorCap to allow correction of stale or erroneous records.
+4. Add auditor_address to the AuditAnchored event to enable complete audit attribution from event streams alone.
+5. Define and enforce a canonical walrus_blob_id format and document the expected relationship between the blob content and the on-chain risk score.
 
 ---
 
@@ -73,5 +85,5 @@ By addressing these findings and implementing the recommended changes, the secur
 
 This report is permanently stored on Walrus (decentralized storage):
 
-- **Report:** [https://aggregator.walrus-testnet.walrus.space/v1/blobs/0JxN0belacO-KC9PLCze3Of3PIDOhQ65TKTlzwobmpM](https://aggregator.walrus-testnet.walrus.space/v1/blobs/0JxN0belacO-KC9PLCze3Of3PIDOhQ65TKTlzwobmpM)
-- **Blob ID:** `0JxN0belacO-KC9PLCze3Of3PIDOhQ65TKTlzwobmpM`
+- **Report:** [https://aggregator.walrus-testnet.walrus.space/v1/blobs/NtfWSTSQTL5sJHXfTj962ejZc4nThz_YGz-sZykPyow](https://aggregator.walrus-testnet.walrus.space/v1/blobs/NtfWSTSQTL5sJHXfTj962ejZc4nThz_YGz-sZykPyow)
+- **Blob ID:** `NtfWSTSQTL5sJHXfTj962ejZc4nThz_YGz-sZykPyow`

@@ -50,6 +50,7 @@ const VULN_CATEGORIES = [
 /* ─── Repo Audit Inline ───────────────────────────────────────────── */
 function RepoAuditInline() {
   const router = useRouter();
+  const { isConnected, address, provider } = useWallet();
   const [repoUrl, setRepoUrl] = useState('');
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<any>(null);
@@ -71,9 +72,73 @@ function RepoAuditInline() {
 
   const handleSubmit = async () => {
     if (!scanResult) return;
+    if (!isConnected || !address) {
+      setSubmitError('Connect your Slush wallet to pay for the audit.');
+      return;
+    }
+    if (!provider) {
+      setSubmitError('Wallet connection lost. Please reconnect.');
+      return;
+    }
+
     setIsSubmitting(true); setSubmitError('');
+
     try {
-      const res = await api.submitRepoAudit({ scanId: scanResult.scanId, projectTrack });
+      const TREASURY_ADDRESS = process.env.NEXT_PUBLIC_DEMO_WALLET_ADDRESS || '0x7c23479f9746a400ae9fddd93158f97e864dde6837942d863d52c9893e7765a8';
+      const costMist = BigInt(scanResult.estimatedAudits) * BigInt(1_000_000_000);
+
+      const tx = new Transaction();
+      tx.setSender(address);
+      const [coin] = tx.splitCoins(tx.gas, [tx.pure.u64(costMist)]);
+      tx.transferObjects([coin], tx.pure.address(TREASURY_ADDRESS));
+
+      let account = null;
+      if (provider.accounts) {
+        account = provider.accounts.find((a: any) => a.address?.toLowerCase() === address.toLowerCase()) || provider.accounts[0];
+      }
+      if (!account && typeof provider.getAccounts === 'function') {
+        try {
+          const legacyAccounts = await provider.getAccounts();
+          const found = legacyAccounts?.find((a: any) => {
+            const addr = typeof a === 'string' ? a : a?.address;
+            return addr?.toLowerCase() === address.toLowerCase();
+          });
+          if (found) { account = typeof found === 'string' ? { address: found } : found; }
+          else if (legacyAccounts?.[0]) { const first = legacyAccounts[0]; account = typeof first === 'string' ? { address: first } : first; }
+        } catch { /* ignore */ }
+      }
+      if (!account && provider.features?.['standard:connect']?.connect) {
+        try {
+          const connResult = await provider.features['standard:connect'].connect();
+          const accounts = connResult.accounts || provider.accounts || [];
+          account = accounts.find((a: any) => a.address?.toLowerCase() === address.toLowerCase()) || accounts[0];
+        } catch { /* ignore */ }
+      }
+
+      let txResult;
+      if (provider.features?.['sui:signAndExecuteTransaction'] && account) {
+        txResult = await provider.features['sui:signAndExecuteTransaction'].signAndExecuteTransaction({
+          account, chain: 'sui:testnet', transaction: tx, options: { showEffects: true },
+        });
+      } else if (provider.features?.['sui:signAndExecuteTransactionBlock'] && account) {
+        txResult = await provider.features['sui:signAndExecuteTransactionBlock'].signAndExecuteTransactionBlock({
+          account, chain: 'sui:testnet', transactionBlock: tx, options: { showEffects: true },
+        });
+      } else if (typeof provider.signAndExecuteTransactionBlock === 'function') {
+        txResult = await provider.signAndExecuteTransactionBlock({
+          transactionBlock: tx, options: { showEffects: true },
+        });
+      } else {
+        throw new Error('No active wallet account found. Please try reconnecting.');
+      }
+
+      if (txResult.effects?.status?.status === 'failure') {
+        throw new Error('Transaction failed on the Sui network. Please try again.');
+      }
+      const txDigest = txResult.digest || txResult.transactionEffects?.transactionDigest;
+      if (!txDigest) throw new Error('No transaction digest returned by wallet.');
+
+      const res = await api.submitRepoAudit({ scanId: scanResult.scanId, projectTrack, txDigest });
       router.push(`/repo-audit/${res.repoAuditId}`);
     } catch (err: any) {
       setSubmitError(err.message || 'Failed to submit audit.');
@@ -165,7 +230,7 @@ function RepoAuditInline() {
               <div className="p-3 bg-red-500/8 border border-red-500/15 rounded-lg text-xs text-red-400">{submitError}</div>
             )}
             <button onClick={handleSubmit} disabled={isSubmitting || !scanResult} className="btn-primary w-full py-2.5 text-xs">
-              {isSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Initiating…</> : <><Shield className="w-4 h-4" /> Submit Repo Audit <ArrowRight className="w-3.5 h-3.5" /></>}
+              {isSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Processing…</> : <><Shield className="w-4 h-4" /> {isConnected ? `Pay ${scanResult?.estimatedAudits || 0} SUI & Audit` : 'Connect Wallet'} <ArrowRight className="w-3.5 h-3.5" /></>}
             </button>
           </div>
         </div>

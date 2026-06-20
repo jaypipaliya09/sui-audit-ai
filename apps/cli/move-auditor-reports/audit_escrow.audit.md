@@ -1,79 +1,72 @@
 # Executive Summary
-The move_auditor::escrow module implements a single-job payment escrow for audit fees on Sui. However, its fundamental security flaw is that the payer can unilaterally call refund() at any time, including after the audit completes, providing no binding payment guarantee to the authority. The status tracking system (STATUS_LOCKED) is entirely dead code, and the absence of mutual-consent gates, time-locks, or proof-of-delivery checks means this contract cannot be safely used in a trust-minimized payment context.
+The escrow contract implements a simple two-party payment flow for audit jobs with correct object-consumption semantics. However, the payer retains unilateral refund rights at all times with no time-lock or completion proof, making it impossible for the authority to guarantee payment after delivering work. Additionally, the payer freely sets the authority address at lock time with no on-chain verification, allowing self-dealing. The status field is dead code, and zero-value escrows are unchecked.
 
 # Overall Risk Assessment
-The overall risk of the contract is **HIGH** due to the lack of binding payment guarantees and the presence of several high-severity vulnerabilities.
+The overall risk of the contract is **HIGH**. This is due to several high-severity findings, including the payer's ability to unconditionally refund the escrow, potentially allowing them to exploit the authority. The contract's logic and access control issues contribute to this high risk assessment.
 
 # Detailed Findings
 ## High Severity
-### FIND-001: Payer Can Unilaterally Self-Refund — No Binding Payment Guarantee for Authority
+### FIND-001: Payer retains unconditional refund rights — authority cannot guarantee payment
 * **Severity:** HIGH
 * **Category:** LOGIC
-* **Location:** move_auditor::escrow, refund, Lines 97-113
-* **Description:** refund() permits either the payer or the authority to trigger a refund with no preconditions. Because the payer is an authorized caller, they can invoke refund() at any point in the lifecycle, including immediately after the authority delivers the audit report.
-* **Impact:** A payer can submit refund() the moment the audit report is delivered, retrieving their locked funds without paying the authority.
-* **Recommendation:** Remove the payer from the authorized callers of refund(). Only the authority should be able to initiate a refund.
+* **Location:** move_auditor::escrow, function: refund, Lines 97-112
+* **Description:** The payer can call refund() at any time, and there is no state transition that locks out the payer once audit work has begun or completed. The authority calls capture(), but the payer can race with or preemptively submit a refund() transaction.
+* **Impact:** The payer can reclaim funds after audit delivery by racing refund() against capture(). The authority bears full counterparty risk with no on-chain remedy.
+* **Recommendation:** Introduce a two-phase or time-locked commit, or require the authority to sign capture and add a deadline after which the payer may reclaim.
 
-### FIND-002: Race Condition — Payer Can Front-Run Authority's capture() with refund()
-* **Severity:** HIGH
+### FIND-002: Payer controls authority address — self-dealing bypasses escrow intent
+* **Severity:** MEDIUM
 * **Category:** ACCESS_CONTROL
-* **Location:** move_auditor::escrow, capture / refund, Lines 83-113
-* **Description:** Both capture() and refund() are gated only by payer/authority address membership with no ordering constraint or mutual-exclusion mechanism beyond Sui's object consumption.
-* **Impact:** A payer acting in bad faith can race to refund after the authority broadcasts capture(), extracting funds and forcing the authority to absorb the full cost of completed audit work.
-* **Recommendation:** Separate the authority's capture right from the payer's refund right with an explicit time-based or state-based ordering.
+* **Location:** move_auditor::escrow, function: lock, Lines 60-80
+* **Description:** The authority address is supplied by the payer at lock() time with no on-chain validation. A payer can pass their own address (or any address they control) as authority.
+* **Impact:** The payer can create a fake escrow that never actually exposes funds to a real auditor, potentially for UI spoofing, off-chain fraud, or fee gaming.
+* **Recommendation:** Restrict lock() to accept only a whitelisted authority address or assert authority != payer inside lock().
 
 ## Medium Severity
-### FIND-003: STATUS_LOCKED Constant and status Field Are Dead Code — Lifecycle Never Enforced
-* **Severity:** MEDIUM
-* **Category:** LOGIC
-* **Location:** move_auditor::escrow, Lines 11, 27, 66, 91, 101
-* **Description:** STATUS_LOCKED (value 0) is assigned to escrow.status at creation in lock(), but both capture() and refund() destructure the struct with status: _, discarding the field without reading it.
-* **Impact:** The dead status field gives a false impression of lifecycle enforcement to readers and integrators.
-* **Recommendation:** Delete the status field and STATUS_LOCKED constant entirely, or define STATUS_CAPTURED and STATUS_REFUNDED variants and assert status == STATUS_LOCKED at the top of both capture() and refund().
-
-### FIND-004: Authority Can Unilaterally Refund Completed Audits — Compromised Key Drains Revenue
-* **Severity:** MEDIUM
-* **Category:** LOGIC
-* **Location:** move_auditor::escrow, refund, Lines 97-113
-* **Description:** The authority is permitted to call refund(), returning funds to the payer. A compromised, stolen, or buggy authority key can refund any open escrow at will, transferring all locked funds back to payers without payment.
-* **Impact:** A compromised authority private key can drain all in-progress and completed escrows to their respective payers, causing total revenue loss for the service operator.
-* **Recommendation:** Document explicitly that the authority key has full refund power and must be protected with HSM or multisig key management.
+*No medium-severity findings beyond FIND-002.*
 
 ## Low Severity
-### FIND-005: No Validation on authority Address — Zero Address Burns Funds, Self-Authority Bypasses Escrow
-* **Severity:** LOW
-* **Category:** ACCESS_CONTROL
-* **Location:** move_auditor::escrow, lock, Lines 57-79
-* **Description:** lock() accepts any address as authority with no validation. Two edge cases: (1) authority == @0x0 — capture() transfers funds to the zero address, which no one controls on Sui, effectively burning them permanently. (2) authority == payer — the payer becomes both parties; they can call both capture() and refund() unilaterally, making the escrow trivially escapable with no counterparty guarantee at all.
-* **Impact:** User error or a malicious CLI client supplying a bad authority address results in burned funds or a meaningless escrow.
-* **Recommendation:** Add validation to lock(): assert!(authority != @0x0, EInvalidAuthority); assert!(authority != tx_context::sender(ctx), EInvalidAuthority);
-
-### FIND-006: Redundant amount Field — Events Emit Stale Lock-Time Value Instead of Actual Balance
+### FIND-003: status field is dead code — false impression of state-machine enforcement
 * **Severity:** LOW
 * **Category:** LOGIC
-* **Location:** move_auditor::escrow, capture / refund, Lines 27, 64, 93, 104
-* **Description:** The amount field stores coin::value(&payment) at lock time. The public amount() helper correctly reads balance::value(&escrow.funds), but EscrowCaptured and EscrowRefunded events emit the stored amount field rather than the live balance at transfer time.
-* **Impact:** Low immediate risk under current code. In any future upgrade that adjusts the balance post-lock, downstream systems relying on event amounts for financial reconciliation will observe incorrect values with no on-chain indication of the discrepancy.
-* **Recommendation:** Remove the amount field from the struct and compute the emission value from balance::value(&funds) at the point of destructuring.
+* **Location:** move_auditor::escrow, Lines 22, 27, 73
+* **Description:** The status field is assigned on object creation and is never read or asserted in capture() or refund().
+* **Impact:** No direct exploit, but the misleading structure can cause future developers to omit status checks when adding new states.
+* **Recommendation:** Remove the status field and STATUS_LOCKED constant or implement actual state assertions in capture/refund.
+
+### FIND-004: Zero-amount escrow not prevented
+* **Severity:** LOW
+* **Category:** ASSET_SAFETY
+* **Location:** move_auditor::escrow, function: lock, Lines 60-80
+* **Description:** lock() does not assert amount > 0, allowing creation of AuditEscrow objects with no funds.
+* **Impact:** Spam/dust escrow objects, off-chain accounting confusion, and wasted storage deposits.
+* **Recommendation:** Add assert!(amount > 0, EZeroAmount) immediately after computing amount in lock().
 
 ## Informational
-### FIND-007: Zero-Amount Escrow Creation Allowed — Storage Spam Vector
+### FIND-005: Redundant amount field diverges from funds balance if contract is extended
 * **Severity:** INFO
 * **Category:** OTHER
-* **Location:** move_auditor::escrow, lock, Lines 57-79
-* **Description:** lock() does not assert that the payment amount exceeds zero. A zero-value Coin<T> is valid in Sui, so any caller can create unbounded spam escrow objects with no economic commitment, consuming shared object slots and emitting EscrowLocked events without meaningful payment.
-* **Impact:** Negligible per-object economic impact. At scale, zero-amount escrows could contribute to Sui state bloat, inflate event indexes, and confuse off-chain monitoring systems that parse EscrowLocked events to track payment volume.
-* **Recommendation:** Add assert!(coin::value(&payment) > 0, EZeroAmount) in lock() to prevent zero-value spam escrow creation.
+* **Location:** move_auditor::escrow, Lines 26-27
+* **Description:** The struct stores both funds: Balance<T> and amount: u64. The amount field is set once at lock time and only appears in events.
+* **Impact:** No current exploit, but the risk surface grows if the contract is extended with partial-capture or fee logic.
+* **Recommendation:** Remove the amount: u64 field and compute it on-the-fly from balance::value(&escrow.funds) at event emission.
+
+### FIND-006: Shared object creation imposes sequencing overhead for every escrow
+* **Severity:** INFO
+* **Category:** GAS
+* **Location:** move_auditor::escrow, function: lock, Line 77
+* **Description:** transfer::share_object() makes AuditEscrow a consensus-sequenced shared object, requiring consensus sequencing on all future operations.
+* **Impact:** Higher latency and gas cost per escrow lifecycle.
+* **Recommendation:** Consider transferring the escrow object to the authority as an owned object or evaluate a programmable transaction block pattern.
 
 # Recommendations and Next Steps
-1. **Remove payer from refund() authorized callers**: This is the primary security failure and should be addressed immediately.
-2. **Implement a time-locked state machine**: A LOCKED phase where only capture() is callable, followed by an optional DISPUTED/EXPIRED phase where payer-initiated refund is permitted only after a mandatory window.
-3. **Replace the single authority address with a multisig or program-derived address**: Eliminate the single-point-of-key-compromise risk for authority-initiated refunds.
-4. **Validate authority address in lock()**: Reject @0x0 and authority == payer to prevent fund burning and trivially bypassable escrow creation.
-5. **Delete the status field and STATUS_LOCKED constant**: They are dead code creating false lifecycle assurances.
-6. **Replace the stored amount field with live balance::value(&funds) reads**: Guarantee event accuracy and eliminate the redundant storage slot.
-7. **Consider switching to an owned-object model**: Transfer to authority at lock time to eliminate shared-object consensus overhead and enable Sui fast-path execution for all escrow operations.
-8. **Add assert!(coin::value(&payment) > 0, EZeroAmount) in lock()**: Prevent zero-value spam escrow creation.
+1. **CRITICAL PATH:** Add a completion gate — authority-only mark_complete() with a payer-dispute window — before any mainnet deployment.
+2. Validate that authority != payer and optionally restrict authority to a whitelisted registry to prevent self-dealing.
+3. Remove the dead status field and STATUS_LOCKED constant or implement real state-machine transitions with assertions.
+4. Assert amount > 0 in lock() to prevent zero-value spam escrows.
+5. Consider migrating to an owned-object model (escrow held by authority) to eliminate consensus overhead on every capture/refund call.
+6. Remove the redundant amount: u64 field and compute it on-the-fly from balance::value(&escrow.funds) at event emission.
+7. Evaluate gas optimization suggestions, including using owned-object transfer and batch EscrowLocked event data.
 
 ---
 
@@ -81,5 +74,5 @@ The overall risk of the contract is **HIGH** due to the lack of binding payment 
 
 This report is permanently stored on Walrus (decentralized storage):
 
-- **Report:** [https://aggregator.walrus-testnet.walrus.space/v1/blobs/d0ypmUK9EH6_lEQEScrAD0w7u_4hUE6c1n4qWGYeByU](https://aggregator.walrus-testnet.walrus.space/v1/blobs/d0ypmUK9EH6_lEQEScrAD0w7u_4hUE6c1n4qWGYeByU)
-- **Blob ID:** `d0ypmUK9EH6_lEQEScrAD0w7u_4hUE6c1n4qWGYeByU`
+- **Report:** [https://aggregator.walrus-testnet.walrus.space/v1/blobs/Ms1lNHgHeVBgZY-UTM1FvkR8ltpAj8Gj_8R04aLpqSg](https://aggregator.walrus-testnet.walrus.space/v1/blobs/Ms1lNHgHeVBgZY-UTM1FvkR8ltpAj8Gj_8R04aLpqSg)
+- **Blob ID:** `Ms1lNHgHeVBgZY-UTM1FvkR8ltpAj8Gj_8R04aLpqSg`

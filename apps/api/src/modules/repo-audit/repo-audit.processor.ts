@@ -24,7 +24,7 @@ export interface RepoAuditJobData {
   defaultBranch: string;
   projectTrack: string;
   moveFiles: { path: string; name: string; downloadUrl: string }[];
-  userId: string;
+  userId?: string;
 }
 
 @Processor(REPO_AUDIT_QUEUE)
@@ -49,7 +49,7 @@ export class RepoAuditProcessor extends WorkerHost {
   async process(job: Job<RepoAuditJobData>): Promise<void> {
     const { repoAuditId, repoUrl, repoOwner, repoName, projectTrack, moveFiles, userId } = job.data;
     
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const user = userId ? await this.prisma.user.findUnique({ where: { id: userId } }) : null;
 
     this.logger.log(`Processing repo audit [${repoAuditId}] for ${repoOwner}/${repoName}`);
 

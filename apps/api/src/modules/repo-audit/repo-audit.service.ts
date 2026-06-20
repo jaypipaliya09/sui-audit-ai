@@ -9,7 +9,7 @@ export class RepoAuditService {
   constructor(private readonly prisma: PrismaService) {}
 
   async createRepoAudit(data: {
-    userId: string;
+    userId: string | undefined;
     repoUrl: string;
     repoOwner: string;
     repoName: string;

@@ -54,7 +54,7 @@ export class RepoAuditController {
 
   @Post('submit')
   @UseGuards(FlexibleAuthGuard, RateLimitGuard)
-  async submit(@CurrentUser() user: any, @Body() body: { scanId: string; projectTrack: string; includeTests?: boolean }) {
+  async submit(@CurrentUser() user: any, @Body() body: { scanId: string; projectTrack: string; includeTests?: boolean; txDigest?: string }) {
     const cached = await this.redis.get(`scan:${body.scanId}`);
     if (!cached) {
       throw new NotFoundException('Scan expired or not found. Please scan the repository again.');
@@ -63,12 +63,15 @@ export class RepoAuditController {
     const repoInfo = JSON.parse(cached);
     const filesCount = repoInfo.moveFiles.length;
 
-    const userId = user?.userId || user?.sub || user?.id;
+    const userId: string | undefined = user?.userId || user?.sub || user?.id;
+    const walletPaid = !!body.txDigest;
 
-    // Enforce audit quota
-    const allowed = await this.subscriptionService.checkAndIncrementUsage(userId, filesCount);
-    if (!allowed) {
-      throw new ForbiddenException('Insufficient audit credits for this repository.');
+    // Enforce audit quota only for authenticated (credit-based) users
+    if (!walletPaid && userId) {
+      const allowed = await this.subscriptionService.checkAndIncrementUsage(userId, filesCount);
+      if (!allowed) {
+        throw new ForbiddenException('Insufficient audit credits for this repository.');
+      }
     }
 
     // Create RepoAudit record

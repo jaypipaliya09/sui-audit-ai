@@ -42,7 +42,7 @@ class ApiClient {
         return retryRes.json();
       } else {
         localStorage.removeItem('token');
-        window.location.href = '/login';
+        window.location.href = '/admin/login';
         throw new Error('Session expired');
       }
     }
@@ -131,7 +131,7 @@ class ApiClient {
     });
   }
 
-  async submitRepoAudit(data: { scanId: string; projectTrack: string; includeTests?: boolean }) {
+  async submitRepoAudit(data: { scanId: string; projectTrack: string; includeTests?: boolean; txDigest?: string }) {
     return this.request<{ repoAuditId: string }>('/repo-audit/submit', {
       method: 'POST',
       body: JSON.stringify(data),
