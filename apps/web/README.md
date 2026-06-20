@@ -1,36 +1,106 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SuiAudit AI — Web
 
-## Getting Started
+Next.js 14 frontend for the SuiAudit AI platform. Provides the audit dashboard, real-time analysis UI, GitHub repo scanner, admin portal, and on-chain report viewer.
 
-First, run the development server:
+## Tech Stack
+
+- **Framework** — Next.js 14 (App Router)
+- **Styling** — Tailwind CSS
+- **Animation** — Framer Motion
+- **Charts** — Recharts
+- **Blockchain** — `@mysten/sui`, `@mysten/dapp-kit`
+- **Editor** — Monaco Editor (contract code input)
+- **HTTP** — Axios, TanStack Query
+- **Markdown** — react-markdown + remark-gfm
+- **Auth** — JWT stored in cookies via `js-cookie`
+
+## Pages
+
+| Route | Description |
+|-------|-------------|
+| `/` | Landing page |
+| `/admin/login` | Admin / user login |
+| `/dashboard` | User audit dashboard |
+| `/audit` | Submit Move contract for analysis |
+| `/report/:id` | View audit report |
+| `/my-audits` | Audit history |
+| `/repo-audit` | GitHub repository scanner |
+| `/repo-report/:owner/:repo` | Repo audit report with badge |
+| `/how-it-works` | Platform explainer |
+| `/cli` | CLI tool documentation |
+| `/verify` | On-chain audit verification |
+| `/admin/dashboard` | Admin panel |
+
+## Setup
+
+### 1. Install dependencies
+
+```bash
+cd apps/web
+npm install
+```
+
+### 2. Configure environment
+
+Create `.env.local` in `apps/web/`:
+
+```env
+# Backend API URL (must be publicly accessible for badge embeds to work on GitHub)
+NEXT_PUBLIC_API_URL=http://localhost:3001
+
+# Optional: demo wallet address shown on landing page
+NEXT_PUBLIC_DEMO_WALLET_ADDRESS=0x...
+```
+
+> **Note:** Badge embeds in GitHub README files require `NEXT_PUBLIC_API_URL` to point to a publicly deployed API. `localhost` URLs will fail silently on GitHub.
+
+### 3. Start the dev server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+App runs at `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Development server with hot reload |
+| `npm run build` | Production build |
+| `npm run start` | Serve production build |
+| `npm run lint` | Lint with ESLint |
 
-## Learn More
+## Key Components
 
-To learn more about Next.js, take a look at the following resources:
+| Component | Location | Description |
+|-----------|----------|-------------|
+| `LogoMark` | `src/components/LogoMark.tsx` | SVG brand mark |
+| `Navbar` | `src/components/Navbar.tsx` | Top navigation |
+| `Footer` | `src/components/Footer.tsx` | Site footer |
+| Auth layout | `src/app/(auth)/layout.tsx` | Split-panel login shell |
+| Dashboard layout | `src/app/(dashboard)/layout.tsx` | Sidebar dashboard shell |
+| Admin layout | `src/app/admin/dashboard/layout.tsx` | Admin panel shell |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Auth Flow
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. User logs in at `/admin/login`
+2. JWT returned from API, stored in `localStorage` and cookies
+3. `src/lib/auth.tsx` context exposes `login`, `logout`, `user`
+4. Dashboard routes protected by `(dashboard)/layout.tsx` guard
 
-## Deploy on Vercel
+## Badge Embed
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Every GitHub repo audit generates an SVG badge served by the API:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+GET /repo-audit/badge/:owner/:repo
+```
+
+Embed in any README:
+
+```markdown
+![Audit Badge](https://your-api.com/repo-audit/badge/owner/repo)
+```
+
+The badge dynamically reflects the latest audit risk level and finding count.

@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  Terminal, Package, Play, FolderOpen, CreditCard,
+  Terminal, Package, Play, FolderOpen,
   RefreshCw, CheckCircle2, FileText, Globe, LayoutDashboard, Share2,
 } from 'lucide-react';
 import { Reveal, SpotlightCard } from '@/components/home/HomeUI';
@@ -39,60 +39,6 @@ const WIZARD_STEPS = [
   { step: '4', label: 'Review cost', desc: 'The CLI prints a list of files and the total cost (1 SUI per file). Nothing moves until you confirm.' },
   { step: '5', label: 'Block funds', desc: 'An on-chain escrow locks the SUI. Funds are released automatically if the audit fails or is interrupted.' },
   { step: '6', label: 'Audit + deposit', desc: 'Claude audits each file in sequence. On success, the escrowed SUI is deposited and reports are saved locally.' },
-];
-
-const CLI_ENV_VARS = [
-  {
-    name: 'MOVE_AUDITOR_SECRET_KEY',
-    required: true,
-    operator: true,
-    description: 'Operator signing key used to authorize escrow transactions on behalf of all users. Set once by the service deployer.',
-    example: 'suiprivkey1...',
-  },
-  {
-    name: 'ESCROW_PACKAGE_ID',
-    required: true,
-    operator: true,
-    description: 'Object ID of the deployed move_auditor escrow package. Set once by the service deployer.',
-    example: '0xabc123...',
-  },
-  {
-    name: 'TREASURY_ADDRESS',
-    required: true,
-    operator: true,
-    description: 'Sui address that receives captured audit fees. Set once by the service deployer.',
-    example: '0xdef456...',
-  },
-  {
-    name: 'BACKEND_URL',
-    required: false,
-    description: 'URL of the SuiAudit AI API server. When set, reports are uploaded for the web dashboard.',
-    example: 'https://api.suiaudit.ai',
-  },
-  {
-    name: 'FRONTEND_URL',
-    required: false,
-    description: 'Web app base URL printed after a run so you can click through to your report.',
-    example: 'https://suiaudit.ai',
-  },
-  {
-    name: 'MOVE_AUDITOR_MOCK_PAYMENT',
-    required: false,
-    description: 'Set to 1 to skip all on-chain transactions — no real funds move. Useful for CI and dry runs.',
-    example: '1',
-  },
-  {
-    name: 'SUI_NETWORK',
-    required: false,
-    description: 'Target Sui network. One of: testnet (default), mainnet, devnet.',
-    example: 'testnet',
-  },
-  {
-    name: 'PRICE_PER_FILE_SUI',
-    required: false,
-    description: 'Override the per-file audit cost in SUI. Defaults to 1 SUI per file.',
-    example: '0.5',
-  },
 ];
 
 const CLI_TRACKS = [
@@ -414,77 +360,6 @@ move-auditor scan ./sources/vault.move -o ./reports/vault-audit.md`}</code>
               </SpotlightCard>
             </Reveal>
           ))}
-        </div>
-      </section>
-
-      {/* ── ENVIRONMENT VARIABLES ─────────────────────────────────────── */}
-      <section className="relative border-y border-white/[0.05] bg-[#0a0a0d] py-20 overflow-hidden">
-        <div aria-hidden className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-jade-500/25 to-transparent" />
-        <div aria-hidden className="absolute -bottom-16 left-[12%] w-[360px] h-[260px] bg-jade-600/[0.04] rounded-full blur-[120px] pointer-events-none" />
-        <div className="relative max-w-5xl mx-auto px-4 sm:px-6">
-          <SectionHead
-            eyebrow="Configuration"
-            title={<>Environment <span className="lux-gradient">variables</span></>}
-            sub={<>Configure via environment variables or a <code className="text-zinc-300 bg-white/[0.05] border border-white/[0.06] px-1.5 rounded font-mono text-[11px]">.env</code> file in your project root (loaded automatically on startup).</>}
-          />
-
-          <Reveal>
-            <TerminalWindow label=".env" className="mb-6">
-              <div className="divide-y divide-white/[0.05]">
-                {CLI_ENV_VARS.map((env, i) => (
-                  <div
-                    key={env.name}
-                    style={{ animationDelay: `${i * 0.04}s` }}
-                    className="group/env px-5 py-3.5 flex flex-col sm:flex-row sm:items-start gap-2 transition-colors duration-300 hover:bg-jade-500/[0.03] animate-fadeIn"
-                  >
-                    <div className="flex items-center gap-2 sm:w-64 shrink-0">
-                      <code className="text-[11px] font-mono text-jade-300 break-all group-hover/env:text-jade-200 transition-colors">{env.name}</code>
-                      {'operator' in env && env.operator ? (
-                        <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded">operator</span>
-                      ) : env.required ? (
-                        <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider text-red-400 bg-red-500/10 border border-red-500/20 px-1.5 py-0.5 rounded">required</span>
-                      ) : (
-                        <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider text-zinc-500 bg-white/[0.04] border border-white/[0.08] px-1.5 py-0.5 rounded">optional</span>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[11px] text-zinc-500 leading-relaxed mb-1">{env.description}</p>
-                      <code className="text-[10px] font-mono text-zinc-600">
-                        example: <span className="text-zinc-400">{env.example}</span>
-                      </code>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </TerminalWindow>
-          </Reveal>
-
-          {/* Mock payment tip */}
-          <Reveal delay={0.05}>
-            <div className="relative rounded-2xl p-px overflow-hidden">
-              <div aria-hidden className="absolute inset-0 rounded-2xl opacity-60" style={{ background: 'linear-gradient(135deg, rgba(52,211,153,0.3), rgba(212,189,138,0.1) 50%, transparent 80%)' }} />
-              <div className="relative flex items-start gap-3 p-5 rounded-2xl bg-[#0b0b0f]/90 backdrop-blur-xl">
-                <span className="w-9 h-9 rounded-xl bg-jade-500/10 border border-jade-400/20 flex items-center justify-center shrink-0">
-                  <CreditCard className="w-4 h-4 text-jade-400" />
-                </span>
-                <div>
-                  <div className="text-sm font-semibold text-jade-300 mb-1">Testing without real funds</div>
-                  <p className="text-xs text-zinc-500 leading-relaxed mb-3">
-                    Set{' '}
-                    <code className="text-jade-300/90 bg-jade-500/10 border border-jade-500/15 px-1.5 py-0.5 rounded font-mono text-[11px]">
-                      MOVE_AUDITOR_MOCK_PAYMENT=1
-                    </code>{' '}
-                    to skip all on-chain escrow transactions and run the full audit pipeline
-                    with zero SUI spent. Ideal for CI environments, integration testing,
-                    or exploring the tool before committing funds.
-                  </p>
-                  <pre className="text-[11px] text-jade-300 font-mono bg-black/40 border border-white/[0.04] rounded-lg px-4 py-2.5 overflow-x-auto">
-                    <code><span className="text-zinc-600 select-none">$ </span>MOVE_AUDITOR_MOCK_PAYMENT=1 move-auditor audit</code>
-                  </pre>
-                </div>
-              </div>
-            </div>
-          </Reveal>
         </div>
       </section>
 

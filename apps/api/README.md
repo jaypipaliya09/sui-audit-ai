@@ -1,98 +1,142 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# SuiAudit AI — API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+NestJS backend powering the SuiAudit AI platform. Handles contract analysis, AI-driven vulnerability detection, report generation, WebSocket progress streaming, Walrus decentralized storage, and on-chain audit registry interactions.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Tech Stack
 
-## Description
+- **Framework** — NestJS 10, Express
+- **Database** — PostgreSQL via Prisma ORM
+- **Queue** — BullMQ + Redis
+- **AI** — Anthropic Claude Sonnet 4, Google Gemini, Groq
+- **Blockchain** — Sui Move (`@mysten/sui`)
+- **Storage** — Walrus decentralized blob storage
+- **Auth** — JWT + Passport (local + JWT strategies)
+- **Email** — Nodemailer + React Email
+- **Reports** — PDFKit + Puppeteer
+- **Security** — Helmet, express-rate-limit, class-validator
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Modules
 
-## Project setup
+| Module | Description |
+|--------|-------------|
+| `auth` | Registration, login, JWT issuance and refresh |
+| `users` | User CRUD and profile management |
+| `audit` | Contract audit engine — AI analysis, BullMQ queue, WebSocket progress |
+| `audit-runs` | Individual audit run history and diffs |
+| `repo-audit` | GitHub repository scanning and SVG badge generation |
+| `report` | PDF and HTML report generation |
+| `walrus` | Walrus blob storage upload and retrieval |
+| `on-chain` | Sui Move on-chain audit registry calls |
+| `github` | GitHub API integration for repo metadata |
+| `claude` | Anthropic Claude API service wrapper |
+| `admin` | Admin dashboard — user management, metrics |
+| `subscription` | Subscription tiers and limit enforcement |
+| `rate-limiting` | Per-user rate limiting via BullMQ |
+| `metrics` | Platform-level usage metrics |
+| `email` | Transactional email delivery |
+| `health` | Health check endpoint |
 
-```bash
-$ npm install
-```
+## Setup
 
-## Compile and run the project
-
-```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
-```
-
-## Run tests
+### 1. Install dependencies
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+cd apps/api
+npm install
 ```
 
-## Deployment
+### 2. Configure environment
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+Create a `.env` file in `apps/api/`:
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+```env
+PORT=3001
+NODE_ENV=development
+
+# AI providers
+GEMINI_API_KEY=your_gemini_api_key
+GROQ_API_KEY=your_groq_api_key
+
+# Walrus decentralized storage
+WALRUS_PUBLISHER_URL=https://publisher.walrus-testnet.walrus.space
+WALRUS_AGGREGATOR_URL=https://aggregator.walrus-testnet.walrus.space
+WALRUS_EPOCHS=5
+
+# Database
+DATABASE_URL=postgresql://user:password@localhost:5432/suiaudit
+
+# Redis (required for BullMQ)
+REDIS_HOST=localhost
+REDIS_PORT=6379
+
+# CORS — must match frontend origin
+FRONTEND_URL=http://localhost:3000
+
+# Audit limits
+MAX_AUDITS_PER_HOUR=10
+MAX_CONTRACT_SIZE_KB=500
+```
+
+### 3. Run database migrations
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npx prisma migrate dev
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+### 4. Seed initial data
 
-## Resources
+```bash
+npm run seed:admin         # Create admin user
+npm run seed:subscription  # Create subscription tiers
+```
 
-Check out a few resources that may come in handy when working with NestJS:
+### 5. Start the server
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+```bash
+# Development (watch mode)
+npm run start:dev
 
-## Support
+# Production
+npm run build
+npm run start:prod
+```
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+Server starts at `http://localhost:3001`.
 
-## Stay in touch
+## Key Endpoints
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/auth/login` | Login and receive JWT |
+| `POST` | `/auth/register` | Create new account |
+| `POST` | `/audit` | Submit Move contract for audit |
+| `GET` | `/audit/:id` | Fetch audit result |
+| `GET` | `/report/:id` | Download PDF report |
+| `GET` | `/repo-audit/badge/:owner/:repo` | SVG status badge for GitHub repo |
+| `GET` | `/health` | Health check |
 
-## License
+WebSocket gateway at `ws://localhost:3001` streams real-time audit progress events.
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run start:dev` | Development server with auto-reload |
+| `npm run build` | Compile TypeScript to `dist/` |
+| `npm run start:prod` | Run compiled production build |
+| `npm run test` | Unit tests |
+| `npm run test:e2e` | End-to-end tests |
+| `npm run test:cov` | Test coverage report |
+| `npm run lint` | Lint and auto-fix |
+| `npm run seed:admin` | Seed admin user |
+| `npm run seed:subscription` | Seed subscription plans |
+
+## Database
+
+Prisma schema is at `prisma/schema.prisma`.
+
+```bash
+npx prisma migrate dev    # Apply migrations and regenerate client
+npx prisma studio         # Open visual database browser
+npx prisma generate       # Regenerate Prisma client only
+```

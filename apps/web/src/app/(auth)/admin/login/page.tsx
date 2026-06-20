@@ -60,7 +60,7 @@ export default function LoginPage() {
         <div>
           <div className="flex items-center justify-between mb-1.5">
             <label className="block text-xs font-medium text-zinc-400">Password</label>
-            <Link href="/admin/login" className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
+            <Link href="/admin/login" className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors">
               Forgot password?
             </Link>
           </div>
@@ -100,15 +100,6 @@ export default function LoginPage() {
           {!isLoading && <ArrowRight className="w-3.5 h-3.5" />}
         </button>
       </form>
-
-
-
-      <p className="text-center text-xs text-zinc-600 mt-8">
-        Don&apos;t have an account?{' '}
-        <Link href="/register" className="text-indigo-400 hover:text-indigo-300 font-medium transition-colors">
-          Create one
-        </Link>
-      </p>
     </div>
   );
 }
