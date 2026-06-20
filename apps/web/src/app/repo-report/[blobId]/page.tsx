@@ -34,6 +34,53 @@ function normalizeFinding(f: any, i: number) {
   };
 }
 
+function BadgeSnippet({ owner, repo, blobId, copied, onCopy }: {
+  owner: string; repo: string; blobId: string; copied: boolean; onCopy: () => void;
+}) {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+  const isLocalhost = apiUrl.includes('localhost') || apiUrl.includes('127.0.0.1');
+  const badgeUrl = `${apiUrl}/repo-audit/badge/${owner}/${repo}`;
+  const reportUrl = typeof window !== 'undefined' ? `${window.location.origin}/repo-report/${blobId}` : '';
+  const markdown = `[![Sui Move Audit](${badgeUrl})](${reportUrl})`;
+
+  return (
+    <div className="glass-panel p-5 animate-fadeInUp" style={{ animationDelay: '0.28s' }}>
+      <h4 className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 mb-1 flex items-center gap-2">
+        <Shield className="w-3.5 h-3.5" /> Add Badge to README
+      </h4>
+      <p className="text-xs text-zinc-500 mb-3">Paste this into your repo&apos;s README.md to display the audit badge on GitHub.</p>
+      <div className="flex items-center gap-2">
+        <code className="flex-1 text-[11px] font-mono text-zinc-300 bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-2 truncate">
+          {markdown}
+        </code>
+        <button
+          onClick={onCopy}
+          className="shrink-0 flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border transition-colors"
+          style={copied
+            ? { background: 'rgba(16,185,129,0.1)', borderColor: 'rgba(16,185,129,0.3)', color: '#34d399' }
+            : { background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.08)', color: '#a1a1aa' }
+          }
+        >
+          <Copy className="w-3.5 h-3.5" />
+          {copied ? 'Copied!' : 'Copy'}
+        </button>
+      </div>
+      {isLocalhost ? (
+        <p className="mt-3 text-[10px] text-amber-500/80 flex items-center gap-1.5">
+          <AlertTriangle className="w-3 h-3 shrink-0" />
+          Badge uses localhost — won&apos;t load on GitHub. Set <code className="font-mono">NEXT_PUBLIC_API_URL</code> to your deployed API URL.
+        </p>
+      ) : (
+        <div className="mt-3 flex items-center gap-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={badgeUrl} alt="Sui Move Audit badge preview" className="h-5" />
+          <span className="text-[10px] text-zinc-600">live preview</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function RepoReportPage() {
   const params = useParams();
   const blobId = params.blobId as string;
@@ -41,6 +88,7 @@ export default function RepoReportPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [openContracts, setOpenContracts] = useState<Record<string, boolean>>({});
+  const [badgeCopied, setBadgeCopied] = useState(false);
 
   useEffect(() => {
     api.getRepoReportByBlobId(blobId)
@@ -80,6 +128,7 @@ export default function RepoReportPage() {
     ? (typeof report.findingsJson === 'string' ? JSON.parse(report.findingsJson) : report.findingsJson)
     : null;
   const repoName = report.repoName || report.contractName || 'Repository';
+  const repoOwner = report.repoOwner || '';
   const commitSha = report.commitSha || '';
   const overallRisk = report.overallRisk || 'INFO';
   const contracts = findings?.contracts || findings?.perContractFindings || [];
@@ -237,6 +286,25 @@ export default function RepoReportPage() {
               ))}
             </ul>
           </div>
+        )}
+
+        {/* Badge Snippet */}
+        {repoOwner && repoName && (
+          <BadgeSnippet
+            owner={repoOwner}
+            repo={repoName}
+            blobId={blobId}
+            copied={badgeCopied}
+            onCopy={() => {
+              const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+              const reportUrl = `${window.location.origin}/repo-report/${blobId}`;
+              const badgeUrl = `${apiUrl}/repo-audit/badge/${repoOwner}/${repoName}`;
+              const markdown = `[![Sui Move Audit](${badgeUrl})](${reportUrl})`;
+              navigator.clipboard.writeText(markdown);
+              setBadgeCopied(true);
+              setTimeout(() => setBadgeCopied(false), 2000);
+            }}
+          />
         )}
 
         {/* Walrus + On-Chain */}

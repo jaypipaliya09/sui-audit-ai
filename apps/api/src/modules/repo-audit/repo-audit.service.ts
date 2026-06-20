@@ -162,4 +162,23 @@ export class RepoAuditService {
       data: { status: 'FAILED', errorMessage },
     });
   }
+
+  async findLatestCompleteByRepo(owner: string, repo: string) {
+    return this.prisma.repoAudit.findFirst({
+      where: {
+        repoOwner: { equals: owner, mode: 'insensitive' },
+        repoName: { equals: repo, mode: 'insensitive' },
+        status: 'COMPLETE',
+      },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        overallRisk: true,
+        totalFindings: true,
+        criticalCount: true,
+        highCount: true,
+        blobId: true,
+      },
+    });
+  }
 }
