@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { X, Wallet, Copy, Check, LogOut, ChevronDown, ExternalLink, AlertCircle, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useWallet } from '@/lib/walletContext';
+import { copyText } from '@/lib/clipboard';
 
 import { getWallets } from '@wallet-standard/app';
 
@@ -379,9 +380,10 @@ function ConnectedDropdown({ address, onDisconnect, myAuditCount }: ConnectedDro
   const [copied, setCopied] = useState(false);
 
   const copyAddress = async () => {
-    await navigator.clipboard.writeText(address);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    if (await copyText(address)) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
   return (

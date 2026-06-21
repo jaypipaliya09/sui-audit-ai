@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 import { RiskBadge } from '@/components/RiskBadge';
 import { WalrusLink } from '@/components/WalrusLink';
 import { FindingCard } from '@/components/FindingCard';
+import { copyText } from '@/lib/clipboard';
 import {
   Loader2, GitBranch, FileCode2, AlertTriangle,
   ChevronDown, ChevronRight, ExternalLink, Shield, Lightbulb, Copy
@@ -241,7 +242,7 @@ export default function RepoReportPage() {
                           </div>
                           <button
                             onClick={() => {
-                              navigator.clipboard.writeText(contract.contractHash);
+                              copyText(contract.contractHash);
                             }}
                             className="p-2 hover:bg-white/5 rounded-lg text-zinc-500 hover:text-emerald-400 transition-colors border border-transparent hover:border-emerald-500/30"
                             title="Copy to Verify"
@@ -300,9 +301,12 @@ export default function RepoReportPage() {
               const reportUrl = `${window.location.origin}/repo-report/${blobId}`;
               const badgeUrl = `${apiUrl}/repo-audit/badge/${repoOwner}/${repoName}`;
               const markdown = `[![Sui Move Audit](${badgeUrl})](${reportUrl})`;
-              navigator.clipboard.writeText(markdown);
-              setBadgeCopied(true);
-              setTimeout(() => setBadgeCopied(false), 2000);
+              copyText(markdown).then((ok) => {
+                if (ok) {
+                  setBadgeCopied(true);
+                  setTimeout(() => setBadgeCopied(false), 2000);
+                }
+              });
             }}
           />
         )}

@@ -2,6 +2,7 @@
 
 import { Copy, Check, ExternalLink, Database } from 'lucide-react';
 import { useState } from 'react';
+import { copyText } from '@/lib/clipboard';
 
 interface WalrusLinkProps {
   blobId: string;
@@ -17,9 +18,10 @@ export function WalrusLink({ blobId, walrusUrl }: WalrusLinkProps) {
   void walrusUrl;
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    if (await copyText(url)) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
   return (

@@ -7,6 +7,7 @@ import { WalrusLink } from './WalrusLink';
 import dynamic from 'next/dynamic';
 import { CheckCircle2, AlertCircle, Zap, ShieldCheck, Share2, Check, Code, Copy, Lightbulb } from 'lucide-react';
 import { AuditFinding, GasAnalysis, AuditSummary } from '@sui-audit-ai/shared-types';
+import { copyText } from '@/lib/clipboard';
 
 const SeverityChart = dynamic(() => import('./SeverityChart'), { ssr: false });
 
@@ -78,28 +79,27 @@ export function ReportViewer({ audit }: ReportViewerProps) {
   }, []);
 
   const handleShare = async () => {
-    try {
-      await navigator.clipboard.writeText(window.location.href);
+    if (await copyText(window.location.href)) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // fallback
     }
   };
 
   const handleCopyBadge = async () => {
     const badgeUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/badge/${audit.blobId}`;
     const markdown = `[![MoveAuditor](${badgeUrl})](${currentUrl})`;
-    await navigator.clipboard.writeText(markdown);
-    setBadgeCopied(true);
-    setTimeout(() => setBadgeCopied(false), 2000);
+    if (await copyText(markdown)) {
+      setBadgeCopied(true);
+      setTimeout(() => setBadgeCopied(false), 2000);
+    }
   };
 
   const handleCopyHash = async () => {
     if (!audit.contractHash) return;
-    await navigator.clipboard.writeText(audit.contractHash);
-    setHashCopied(true);
-    setTimeout(() => setHashCopied(false), 2000);
+    if (await copyText(audit.contractHash)) {
+      setHashCopied(true);
+      setTimeout(() => setHashCopied(false), 2000);
+    }
   };
 
   const SEVERITY_COUNTS = [

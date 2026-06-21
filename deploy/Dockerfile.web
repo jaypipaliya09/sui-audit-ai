@@ -1,8 +1,13 @@
 # Next.js web. Reuses the shared deps image. NEXT_PUBLIC_API_URL is baked at build time.
 FROM sui-deps:latest AS build
 WORKDIR /repo
+# Overlay current web + shared-types source over the copy baked into the deps image
+COPY apps/web /repo/apps/web
+COPY packages/shared-types /repo/packages/shared-types
 ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_DEMO_WALLET_ADDRESS
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
+    NEXT_PUBLIC_DEMO_WALLET_ADDRESS=$NEXT_PUBLIC_DEMO_WALLET_ADDRESS \
     NODE_OPTIONS=--max-old-space-size=1536
 RUN npm run build --workspace web
 

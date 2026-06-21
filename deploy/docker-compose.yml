@@ -51,6 +51,7 @@ services:
       dockerfile: deploy/Dockerfile.web
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_DEMO_WALLET_ADDRESS: ${NEXT_PUBLIC_DEMO_WALLET_ADDRESS}
     depends_on:
       - api
     ports:

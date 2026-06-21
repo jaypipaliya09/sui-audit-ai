@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
 import { api } from '@/lib/api';
 import { User, Code, Copy, Check, Loader2, Save, Shield } from 'lucide-react';
+import { copyText } from '@/lib/clipboard';
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -33,9 +34,10 @@ export default function SettingsPage() {
   const handleCopyBadge = async () => {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
     const markdown = `[![MoveAuditor](${apiUrl}/badge/${badgeBlobId})](${window.location.origin}/report/${badgeBlobId})`;
-    await navigator.clipboard.writeText(markdown);
-    setBadgeCopied(true);
-    setTimeout(() => setBadgeCopied(false), 2000);
+    if (await copyText(markdown)) {
+      setBadgeCopied(true);
+      setTimeout(() => setBadgeCopied(false), 2000);
+    }
   };
 
   return (
