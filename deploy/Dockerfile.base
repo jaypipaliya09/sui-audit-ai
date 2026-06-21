@@ -1,0 +1,6 @@
+# Shared dependency layer: installs the whole npm workspace once.
+FROM node:20-bookworm-slim
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+WORKDIR /repo
+COPY . .
+RUN npm ci

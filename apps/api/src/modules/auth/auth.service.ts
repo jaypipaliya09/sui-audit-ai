@@ -120,6 +120,9 @@ export class AuthService {
       },
     });
 
-    return { accessToken, refreshToken, user };
+    // Never expose credential material to API clients
+    const { passwordHash: _passwordHash, googleId: _googleId, ...safeUser } = user;
+
+    return { accessToken, refreshToken, user: safeUser };
   }
 }

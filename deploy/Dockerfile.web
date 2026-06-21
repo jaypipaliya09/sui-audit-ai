@@ -1,0 +1,15 @@
+# Next.js web. Reuses the shared deps image. NEXT_PUBLIC_API_URL is baked at build time.
+FROM sui-deps:latest AS build
+WORKDIR /repo
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
+    NODE_OPTIONS=--max-old-space-size=1536
+RUN npm run build --workspace web
+
+FROM node:20-bookworm-slim
+ENV NODE_ENV=production PORT=3000
+WORKDIR /repo
+COPY --from=build /repo /repo
+WORKDIR /repo/apps/web
+EXPOSE 3000
+CMD ["npm", "run", "start"]
