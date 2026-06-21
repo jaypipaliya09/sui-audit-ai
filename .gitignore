@@ -34,3 +34,9 @@ Thumbs.db
 .idea
 *.swp
 *.swo
+
+# AWS deploy: ignore secrets & generated artifacts, keep infra files (Dockerfiles, compose)
+deploy/.env
+deploy/*.env
+deploy/*.pem
+deploy/*.txt

@@ -1,0 +1,27 @@
+# NestJS API. Reuses the shared deps image, then builds + adds Chromium for Puppeteer.
+FROM sui-deps:latest AS build
+# Overlay the current API source (src + schema) over the copy baked into the deps image
+COPY apps/api /repo/apps/api
+WORKDIR /repo/apps/api
+RUN npx prisma generate --schema prisma/schema.prisma
+WORKDIR /repo
+RUN npm run build --workspace api
+
+FROM node:20-bookworm-slim
+ENV NODE_ENV=production \
+    PORT=3001 \
+    PUPPETEER_SKIP_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+# Chromium + the shared libs Puppeteer needs for PDF rendering
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      chromium ca-certificates fonts-liberation \
+      libnss3 libatk-bridge2.0-0 libatk1.0-0 libcups2 libdrm2 \
+      libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
+      libgbm1 libasound2 libpango-1.0-0 libcairo2 \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /repo
+COPY --from=build /repo /repo
+WORKDIR /repo/apps/api
+EXPOSE 3001
+# prisma migrate deploy runs at boot, then start the compiled server
+CMD ["sh", "-c", "npx prisma migrate deploy --schema prisma/schema.prisma && node dist/src/main.js"]

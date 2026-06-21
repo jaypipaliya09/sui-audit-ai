@@ -6,6 +6,11 @@ import { buildUserPrompt } from './prompts/user-prompt.builder.js';
 import type { AuditResult, AuditFinding } from './types/finding.types.js';
 import { MetricsService } from '../metrics/metrics.service.js';
 
+// A finding survives second-model verification only at/above this confidence
+// (on a 0–10 scale). Confidence values are normalized first, so models that
+// reply on a 0–1 or 0–100 scale are still scored correctly.
+const CONFIDENCE_THRESHOLD = 7;
+
 /**
  * Dual-Model Audit Pipeline
  *
@@ -161,8 +166,9 @@ export class ClaudeService {
 
         try {
           const verification = await this.verifyFindingWithGroq(contractCode, finding);
+          const confidence = this.normalizeConfidence(verification.confidence);
 
-          if (verification.confirmed && verification.confidence >= 7) {
+          if (verification.confirmed && confidence >= CONFIDENCE_THRESHOLD) {
             // ✅ Both models agree — high confidence finding
             finding.attackVector = verification.attackVector;
             if (verification.refinedRecommendation) {
@@ -170,16 +176,16 @@ export class ClaudeService {
               finding.refinedRecommendation = verification.refinedRecommendation;
             }
             (finding as any).verifiedBySecondModel = true;
-            (finding as any).verificationConfidence = verification.confidence;
+            (finding as any).verificationConfidence = confidence;
             this.logger.log(
-              `✅ VERIFIED: "${finding.title}" confirmed by Groq Llama (confidence: ${verification.confidence}/10)`,
+              `✅ VERIFIED: "${finding.title}" confirmed by Groq Llama (confidence: ${confidence}/10)`,
             );
             return finding;
           }
 
           // ❌ Second model rejected — likely false positive
           this.logger.warn(
-            `❌ REJECTED: "${finding.title}" not confirmed by Groq Llama (confirmed: ${verification.confirmed}, confidence: ${verification.confidence}/10)`,
+            `❌ REJECTED: "${finding.title}" not confirmed by Groq Llama (confirmed: ${verification.confirmed}, confidence: ${confidence}/10)`,
           );
           return null;
         } catch (err) {
@@ -206,7 +212,8 @@ export class ClaudeService {
         }
         try {
           const deepDive = await this.deepDiveWithGemini(contractCode, finding);
-          if (deepDive.confirmed && deepDive.confidence >= 7) {
+          const confidence = this.normalizeConfidence(deepDive.confidence);
+          if (deepDive.confirmed && confidence >= CONFIDENCE_THRESHOLD) {
             finding.attackVector = deepDive.attackVector;
             if (deepDive.refinedRecommendation) {
               finding.recommendation = deepDive.refinedRecommendation;
@@ -246,6 +253,24 @@ export class ClaudeService {
    * Uses Groq's Llama 3.3 70B to independently verify a finding discovered by Gemini.
    * A completely different model family provides genuine "second opinion" verification.
    */
+  /**
+   * Normalize a model's self-reported confidence onto a 0–10 scale.
+   * Models are inconsistent: some answer on 0–1 (e.g. 0.99 = 99%), some on
+   * 0–100, some on 0–10. Without this, a confirmed finding scored "0.99" was
+   * compared against a 0–10 threshold and wrongly dropped as a false positive.
+   */
+  private normalizeConfidence(raw: unknown): number {
+    const n = typeof raw === 'number' ? raw : Number(raw);
+    if (!Number.isFinite(n) || n <= 0) return 0;
+    let scaled = n;
+    if (n <= 1) {
+      scaled = n * 10; // 0–1 fraction → 0–10
+    } else if (n > 10) {
+      scaled = n / 10; // 0–100 → 0–10
+    }
+    return Math.max(0, Math.min(10, scaled));
+  }
+
   private async verifyFindingWithGroq(
     contractCode: string,
     finding: AuditFinding,
@@ -279,7 +304,7 @@ Analyze the actual code carefully. Is this genuinely exploitable on Sui?
 Output ONLY a JSON object (no markdown, no extra text) with this exact schema:
 {
   "confirmed": boolean,
-  "confidence": number,
+  "confidence": number,  // INTEGER 0-10 (10 = certain it IS exploitable). Do NOT use a 0-1 or 0-100 scale.
   "attackVector": "Step-by-step exploit explanation, or why it's not exploitable",
   "refinedRecommendation": "Precise fix if confirmed=true, empty string if false"
 }`;
@@ -351,7 +376,7 @@ Is this finding genuinely exploitable? Analyze the attack surface and contract c
 Output ONLY a JSON object (no markdown, no extra text) with this exact schema:
 {
   "confirmed": boolean,
-  "confidence": number,
+  "confidence": number,  // INTEGER 0-10 (10 = certain it IS exploitable). Do NOT use a 0-1 or 0-100 scale.
   "attackVector": "Detailed step-by-step explanation of how an attacker would exploit this, or why it's not exploitable",
   "refinedRecommendation": "A more precise fix for the code (only if confirmed=true)"
 }`;
