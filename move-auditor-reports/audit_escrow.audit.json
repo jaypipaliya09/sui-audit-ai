@@ -1,0 +1,136 @@
+{
+  "summary": {
+    "contractName": "move_auditor::escrow",
+    "moduleCount": 1,
+    "lineCount": 121,
+    "overallRisk": "HIGH",
+    "executiveSummary": "The escrow contract manages payment lifecycle for AI audit jobs but contains a critical race-condition griefing vector: the payer retains the ability to call refund() at any time, allowing theft-of-service after an audit completes. The authority address is fully payer-controlled with no registry validation, enabling permanent fund loss if set incorrectly. Additionally, the status field is declared and assigned but never read or enforced, making lifecycle tracking purely cosmetic and misleading for future maintainers or integrators."
+  },
+  "findings": [
+    {
+      "id": "FIND-001",
+      "title": "Payer can front-run authority capture with refund after audit completes",
+      "severity": "HIGH",
+      "category": "LOGIC",
+      "location": {
+        "module": "move_auditor::escrow",
+        "function": "refund",
+        "lineHint": "Lines 94-109"
+      },
+      "description": "Both `capture()` and `refund()` are callable by either the payer or the authority at any time with no status guard. After the AI agent expends compute resources completing an audit, the payer can race-submit `refund()` to reclaim their funds before the authority's `capture()` is sequenced. In Sui's shared-object consensus model, whichever transaction is ordered first wins; the second consumes a non-existent object and aborts. The payer has a strong incentive to do this: they receive the audit report AND recover their payment.",
+      "impact": "Payer receives AI audit results for free by timing a refund transaction to land before the authority's capture. The authority (AI agent treasury) performs work with zero compensation. Repeated abuse drains the operator's compute budget with no revenue.",
+      "recommendation": "Introduce a two-phase commit: the authority must call a `commit()` function first that flips `status` to STATUS_COMMITTED (add a new constant). After that, only the authority may call `capture()`; the payer's refund right should be locked out once committed. Alternatively, add a time-lock: once the authority calls `commit()`, a challenge window opens during which the payer can dispute, after which the authority can finalize capture unilaterally.",
+      "codeSnippet": "public entry fun refund<T>(escrow: AuditEscrow<T>, ctx: &mut TxContext) {\n    let sender = tx_context::sender(ctx);\n    assert!(sender == escrow.payer || sender == escrow.authority, ENotAuthorized);\n    // No status check — payer can refund even after audit is complete\n    ..."
+    },
+    {
+      "id": "FIND-002",
+      "title": "Payer-controlled authority address with no registry validation",
+      "severity": "HIGH",
+      "category": "ACCESS_CONTROL",
+      "location": {
+        "module": "move_auditor::escrow",
+        "function": "lock",
+        "lineHint": "Lines 59-80"
+      },
+      "description": "The `authority` address in `lock()` is a free parameter supplied by the payer. No on-chain check verifies it against a trusted registry or a well-known treasury address. A payer who mistypes the address (or a frontend that injects a wrong address via prompt injection in an AI-driven flow) creates an escrow where funds are permanently routed to an unintended recipient. There is also no check preventing `authority == payer`, which collapses the escrow into a self-transfer and allows the payer to call `capture()` to effectively retrieve their own funds while emitting misleading events.",
+      "impact": "Funds locked to a wrong or zero authority address are unrecoverable (capture sends to that address; no admin override exists). In an AI-agent context where the authority address is derived from model output or user input, prompt injection could redirect all payments to an attacker-controlled address.",
+      "recommendation": "Introduce a singleton `Config` shared object owned by the deployer that stores the canonical authority address. `lock()` should accept the `Config` object by reference and assert `authority == config.authority`. This removes the free parameter and closes the injection surface.",
+      "codeSnippet": "public entry fun lock<T>(\n    payment: Coin<T>,\n    authority: address,  // fully payer-controlled, no validation\n    ctx: &mut TxContext\n) {"
+    },
+    {
+      "id": "FIND-003",
+      "title": "Status field declared but never read or enforced",
+      "severity": "MEDIUM",
+      "category": "LOGIC",
+      "location": {
+        "module": "move_auditor::escrow",
+        "function": null,
+        "lineHint": "Lines 9-10, 24, 71"
+      },
+      "description": "The contract defines `STATUS_LOCKED: u8 = 0` and stores `status: u8` in `AuditEscrow`. The field is assigned on creation but is destructured and discarded (`status: _`) in both `capture()` and `refund()`. No state machine is enforced. The lifecycle comment in the struct doc (`lock() → capture() or refund()`) implies status should guard transitions, but it does not. Future developers or auditors may trust the status as an invariant when it provides none.",
+      "impact": "No direct exploit (Sui's object consumption prevents double-spend), but the false promise of lifecycle tracking creates a maintenance hazard. If a STATUS_COMMITTED phase is ever added to fix FIND-001, the groundwork is incorrect and must be rebuilt from scratch.",
+      "recommendation": "Either remove the `status` field entirely (the object consumption model already enforces single-use) or properly enforce it: add status constants for each phase, assert current status at the start of each transition function, and update the field before destructuring. For the two-phase fix recommended in FIND-001, a real status field is required.",
+      "codeSnippet": "const STATUS_LOCKED: u8 = 0;\n// No STATUS_COMMITTED, STATUS_CAPTURED, STATUS_REFUNDED defined\n...\nlet AuditEscrow { id, payer: _, authority, funds, amount, status: _ } = escrow; // status discarded"
+    },
+    {
+      "id": "FIND-004",
+      "title": "Zero-amount escrow allowed, enabling event spam",
+      "severity": "MEDIUM",
+      "category": "DOS",
+      "location": {
+        "module": "move_auditor::escrow",
+        "function": "lock",
+        "lineHint": "Lines 59-80"
+      },
+      "description": "There is no minimum amount check in `lock()`. A caller can create an `AuditEscrow` object with a zero-value coin. Off-chain AI systems listening to `EscrowLocked` events and auto-triggering audit jobs will process these escrows and potentially spin up compute resources for a zero-payment job. At scale, this is a cheap DoS against the AI audit infrastructure.",
+      "impact": "Attacker spams zero-amount lock events, causing the AI agent to consume compute resources (RPC calls, LLM inference, storage) with no compensation. Legitimate escrows may be delayed or rate-limited.",
+      "recommendation": "Add `assert!(coin::value(&payment) > 0, EZeroAmount)` (and define `EZeroAmount`) at the start of `lock()`. Consider also enforcing a configurable minimum via the `Config` object suggested in FIND-002.",
+      "codeSnippet": "public entry fun lock<T>(\n    payment: Coin<T>,\n    authority: address,\n    ctx: &mut TxContext\n) {\n    // Missing: assert!(coin::value(&payment) > 0, EZeroAmount);\n    let amount = coin::value(&payment);"
+    },
+    {
+      "id": "FIND-005",
+      "title": "Redundant `amount` field duplicates balance value",
+      "severity": "LOW",
+      "category": "GAS",
+      "location": {
+        "module": "move_auditor::escrow",
+        "function": null,
+        "lineHint": "Lines 23-24, 65"
+      },
+      "description": "The struct stores both `funds: Balance<T>` and `amount: u64`. The `amount` field is set at lock time from `coin::value(&payment)` and never changes. It is always equal to `balance::value(&escrow.funds)` because no external code can mutate the balance directly. The `amount()` accessor correctly reads from `balance::value`, making the stored `amount` field useful only for events — but events could instead read from the balance directly at emission time.",
+      "impact": "No security impact. Wastes one `u64` (8 bytes) of on-chain object storage per escrow, increasing object storage fees.",
+      "recommendation": "Remove the `amount: u64` field. In `capture()` and `refund()`, compute the amount for event emission via `balance::value(&funds)` before the balance is consumed into a coin.",
+      "codeSnippet": "struct AuditEscrow<phantom T> has key {\n    ...\n    funds: Balance<T>,\n    amount: u64,  // always == balance::value(&funds), redundant\n    ...\n}"
+    },
+    {
+      "id": "FIND-006",
+      "title": "No on-chain binding between escrow and audit job parameters",
+      "severity": "LOW",
+      "category": "OTHER",
+      "location": {
+        "module": "move_auditor::escrow",
+        "function": "lock",
+        "lineHint": "Lines 59-80"
+      },
+      "description": "The escrow carries no job identifier, target repository hash, audit scope, or AI model parameters. The authority can call `capture()` on any escrow it is listed on, regardless of whether it performed the corresponding audit. If the authority key is compromised or behaves maliciously, it can drain unrelated escrows. Off-chain systems must correlate escrow IDs to audit jobs purely through event logs, which are not tamper-evident from the contract's perspective.",
+      "impact": "A compromised or rogue authority key can capture payments for audits it did not perform. Replay of a prior off-chain audit result against a new escrow (different repo, same authority) is undetectable on-chain.",
+      "recommendation": "Add a `job_id: vector<u8>` or `repo_hash: vector<u8>` field to `AuditEscrow` (set in `lock()`). Include it in all events. This creates an immutable on-chain audit trail binding payment to the specific job. For stronger guarantees, require the authority to supply a signed attestation (or a Merkle root of audit results) in `capture()` that is verified on-chain or stored in the event for off-chain verification.",
+      "codeSnippet": "struct AuditEscrow<phantom T> has key {\n    id: UID,\n    payer: address,\n    authority: address,\n    funds: Balance<T>,\n    amount: u64,\n    status: u8,\n    // Missing: job_id: vector<u8>\n}"
+    },
+    {
+      "id": "FIND-007",
+      "title": "No expiry mechanism; authority offline = indefinitely locked funds",
+      "severity": "LOW",
+      "category": "DOS",
+      "location": {
+        "module": "move_auditor::escrow",
+        "function": null,
+        "lineHint": "Lines 18-27"
+      },
+      "description": "While the payer can call `refund()` at any time (mitigating the worst case), there is no time-lock or expiry epoch field. In the recommended fix for FIND-001 where payer refund rights are restricted after authority commit, funds could be locked indefinitely if the authority key is lost after committing but before capturing.",
+      "impact": "If the two-phase commit from FIND-001 is implemented without an expiry escape hatch, a crashed or lost authority key permanently locks payer funds after the commit phase.",
+      "recommendation": "Add an `expiry_epoch: u64` field set in `lock()`. After the expiry epoch passes, allow the payer to reclaim funds unconditionally regardless of status. Use `tx_context::epoch(ctx)` for comparison.",
+      "codeSnippet": "// No epoch field in AuditEscrow; no time-based escape for payer"
+    }
+  ],
+  "gasAnalysis": {
+    "expensivePatterns": [
+      "Shared object usage (AuditEscrow is share_object'd) requires Sui consensus for every capture/refund access, incurring higher latency and gas vs. owned objects.",
+      "Redundant `amount: u64` field adds 8 bytes to every on-chain escrow object, increasing storage rebate cost.",
+      "Three separate event emissions (EscrowLocked, EscrowCaptured, EscrowRefunded) each add event encoding overhead; the structs are small so impact is minor."
+    ],
+    "optimizationSuggestions": [
+      "Remove the redundant `amount` field; derive it from `balance::value` at event-emission time to save 8 bytes per object.",
+      "If the authority address is known statically at deploy time, pass it via a singleton Config object rather than per-escrow storage, shrinking each AuditEscrow by one address (32 bytes).",
+      "Consider whether the escrow truly needs to be shared. If the authority address is always known and can hold an owned AuditEscrow transferred to them, owned-object transactions are cheaper and faster. However, this removes payer's ability to self-refund, so the shared model is likely correct for this use case."
+    ]
+  },
+  "overallRecommendations": [
+    "Fix FIND-001 first (race-condition griefing): implement a two-phase commit where authority calls commit() to lock out payer refund rights, then capture() to finalize payment. Add an expiry escape hatch (FIND-007) to handle authority key loss after commit.",
+    "Fix FIND-002: introduce a deployer-owned Config shared object storing the canonical authority address; validate it in lock() to close prompt-injection and typo attack surfaces.",
+    "Add zero-amount guard in lock() (FIND-004) to prevent AI agent DoS via spam escrows: assert amount > 0.",
+    "Either enforce the status field as a real state machine (required for the two-phase fix) or remove it to eliminate dead code and misleading lifecycle comments (FIND-003).",
+    "Bind each escrow to a job identifier (FIND-006) to create an immutable on-chain audit trail and prevent authority replay of old results against new escrows.",
+    "Remove the redundant amount field (FIND-005) and derive it from balance::value at event-emission time to reduce object storage costs."
+  ]
+}

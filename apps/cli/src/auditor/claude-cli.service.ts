@@ -1,26 +1,8 @@
-import { spawn } from 'child_process';
+import Anthropic from '@anthropic-ai/sdk';
 import { readFileSync } from 'fs';
 import chalk from 'chalk';
 import { Track } from '../audit/tracks';
-
-/** Run the Claude CLI passing the prompt via argv (no shell interpolation). */
-function runClaude(prompt: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const child = spawn('claude', ['-p', prompt], {
-      maxBuffer: 1024 * 1024 * 10,
-    } as any);
-
-    let stdout = '';
-    let stderr = '';
-    child.stdout.on('data', (d) => (stdout += d.toString()));
-    child.stderr.on('data', (d) => (stderr += d.toString()));
-    child.on('error', reject);
-    child.on('close', (code) => {
-      if (code === 0) resolve(stdout);
-      else reject(new Error(`claude exited with code ${code}: ${stderr}`));
-    });
-  });
-}
+import { OPERATOR_ANTHROPIC_API_KEY } from '../secrets';
 
 export interface AuditFindingFull {
   id: string;
@@ -56,17 +38,31 @@ export interface AuditResult {
 }
 
 export class ClaudeCliService {
+  private client: Anthropic;
+
+  constructor() {
+    if (!OPERATOR_ANTHROPIC_API_KEY) {
+      throw new Error(
+        'Anthropic API key is not configured. Add OPERATOR_ANTHROPIC_API_KEY to src/secrets.ts.',
+      );
+    }
+    this.client = new Anthropic({ apiKey: OPERATOR_ANTHROPIC_API_KEY });
+  }
+
   /**
-   * Reads a file and uses the local Claude Code CLI to analyze it.
+   * Reads a .move file and uses the Anthropic API (Claude) to audit it.
+   * Uses the operator's API key — users never need their own Claude account.
    */
   async auditContract(filePath: string, track?: Track): Promise<AuditResult> {
     console.log(chalk.blue(`Reading contract from ${filePath}...`));
-    
+
     let fileContent: string;
     try {
       fileContent = readFileSync(filePath, 'utf-8');
     } catch (error) {
-      throw new Error(`Failed to read file ${filePath}: ${error instanceof Error ? error.message : error}`);
+      throw new Error(
+        `Failed to read file ${filePath}: ${error instanceof Error ? error.message : error}`,
+      );
     }
 
     const lineCount = fileContent.split('\n').length;
@@ -114,18 +110,26 @@ Use incremental ids (FIND-001, FIND-002, ...). If no issues, set overallRisk to 
 Code to audit:
 ${fileContent}`;
 
-    console.log(chalk.blue(`Invoking Claude Code CLI... (This may take a minute)`));
+    console.log(chalk.blue(`Invoking Claude API... (This may take a minute)`));
 
     try {
-      const stdout = await runClaude(prompt);
+      const message = await this.client.messages.create({
+        model: 'claude-opus-4-5',
+        max_tokens: 4096,
+        messages: [{ role: 'user', content: prompt }],
+      });
 
-      const jsonStr = this.extractJson(stdout);
+      const textBlock = message.content.find((b) => b.type === 'text');
+      if (!textBlock || textBlock.type !== 'text') {
+        throw new Error('No text response received from Claude API.');
+      }
+
+      const jsonStr = this.extractJson(textBlock.text);
       const parsed = JSON.parse(jsonStr) as AuditResult;
-      
-      return parsed;
 
+      return parsed;
     } catch (error) {
-      console.error(chalk.red('Failed to execute Claude CLI or parse response.'));
+      console.error(chalk.red('Failed to call Claude API or parse response.'));
       if (error instanceof Error) {
         console.error(chalk.red(error.message));
       }
@@ -134,16 +138,16 @@ ${fileContent}`;
   }
 
   /**
-   * Robustly extracts JSON from stdout in case Claude prints conversational filler
+   * Robustly extracts JSON from the response in case Claude adds conversational filler.
    */
   private extractJson(text: string): string {
     const startIdx = text.indexOf('{');
     const endIdx = text.lastIndexOf('}');
-    
+
     if (startIdx === -1 || endIdx === -1) {
-      throw new Error("Could not find JSON object in Claude's output:\n" + text);
+      throw new Error("Could not find JSON object in Claude's response:\n" + text);
     }
-    
+
     return text.substring(startIdx, endIdx + 1);
   }
 }

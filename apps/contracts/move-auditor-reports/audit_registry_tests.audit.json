@@ -1,0 +1,137 @@
+{
+  "summary": {
+    "contractName": "move_auditor::registry_tests",
+    "moduleCount": 1,
+    "lineCount": 74,
+    "overallRisk": "HIGH",
+    "executiveSummary": "This test-only module audits the AuditRegistry contract surface through three positive-path tests. The test suite reveals critical coverage gaps: anchor_audit accepts fully caller-controlled blob_id and risk_score with no cryptographic binding to a trusted AI oracle, and no access-control negative tests exist to confirm non-admin callers are rejected. The shared-registry architecture combined with unconstrained write access creates a high-severity attack surface where any actor can anchor fraudulent audit records with arbitrary risk scores and Walrus blob references, undermining the entire trust model of the AI-powered audit system."
+  },
+  "findings": [
+    {
+      "id": "FIND-001",
+      "title": "anchor_audit Has No Access-Control Negative Tests — Production Gate Unverified",
+      "severity": "HIGH",
+      "category": "ACCESS_CONTROL",
+      "location": {
+        "module": "move_auditor::registry_tests",
+        "function": "test_anchor_audit_adds_record",
+        "lineHint": "Lines 28-47"
+      },
+      "description": "Every test in this module calls anchor_audit as ADMIN (@0xCAFE). There is no test that attempts the call from a different address and asserts it aborts. The function signature takes only `&mut AuditRegistry` and `ctx` — no Capability object, no signer whitelist. Because the registry is a shared object, any on-chain caller can invoke anchor_audit in production. The absence of a negative test means the production implementation has almost certainly not enforced a capability gate.",
+      "impact": "Any address can anchor an arbitrary audit record for any contract hash. Attackers can register malicious contracts as 'LOW risk' or forge audit records for contracts they do not own, poisoning the registry that downstream consumers (wallets, dApps, badge issuers) rely on.",
+      "recommendation": "1. Introduce an AdminCap or AuditorCap resource. 2. anchor_audit must require `_cap: &AdminCap` or similar. 3. Add a negative test: call anchor_audit from @0xDEAD and assert it aborts with the expected error code.",
+      "codeSnippet": "registry::anchor_audit(\n    &mut registry,\n    contract_hash,\n    blob_id,\n    3, // HIGH risk\n    ts::ctx(&mut scenario),\n);"
+    },
+    {
+      "id": "FIND-002",
+      "title": "AI Oracle Trust Boundary Violated — blob_id and risk_score Are Fully Caller-Controlled",
+      "severity": "HIGH",
+      "category": "OTHER",
+      "location": {
+        "module": "move_auditor::registry_tests",
+        "function": "test_anchor_audit_adds_record",
+        "lineHint": "Lines 34-36"
+      },
+      "description": "blob_id (b\"walrus_blob_xyz\") and risk_score (3) are raw caller-supplied values with no cryptographic binding to an authoritative AI model output. There is no signature verification, no Walrus content-address proof, and no oracle attestation checked on-chain. The test treats arbitrary bytes as a valid Walrus blob reference and an arbitrary integer as a valid AI risk assessment. This violates the core AI-track trust boundary: on-chain state must not accept off-chain AI results without verifiable provenance.",
+      "impact": "Any caller can anchor a blob_id pointing to a fabricated or attacker-controlled Walrus object paired with a self-asserted risk_score of 0 (CLEAN). Downstream consumers that read the registry to make security decisions will act on fraudulent AI outputs. Replay of any previously observed (contract_hash, blob_id, score) tuple is also possible with no freshness check.",
+      "recommendation": "1. Require an oracle signature over (contract_hash, blob_id, risk_score, epoch) verified on-chain before anchoring. 2. Alternatively, restrict anchor_audit to a trusted oracle address via capability. 3. Include the Sui epoch or a nonce in the signed payload to prevent replay. 4. Add tests that assert anchoring fails when the oracle signature is absent or invalid.",
+      "codeSnippet": "let blob_id = b\"walrus_blob_xyz\";\nregistry::anchor_audit(\n    &mut registry,\n    contract_hash,\n    blob_id,\n    3, // caller-asserted risk score\n    ts::ctx(&mut scenario),\n);"
+    },
+    {
+      "id": "FIND-003",
+      "title": "Duplicate Anchor / Overwrite Behavior Untested",
+      "severity": "HIGH",
+      "category": "LOGIC",
+      "location": {
+        "module": "move_auditor::registry_tests",
+        "function": "test_anchor_audit_adds_record",
+        "lineHint": "Lines 28-47"
+      },
+      "description": "No test calls anchor_audit twice with the same contract_hash. The production registry may silently overwrite an existing audit record, or it may abort. Either unintended behavior is a logic flaw: overwrite allows a privileged (or in the current access-control-free state, any) actor to replace a HIGH-risk finding with CLEAN; abort-on-duplicate means a race condition can permanently block re-auditing of updated contracts.",
+      "impact": "If overwrite is allowed: attacker anchors contract_hash with risk_score=0 after a legitimate HIGH audit, erasing the warning. If abort-on-duplicate: legitimate re-audit of an updated contract is blocked forever by whoever anchors first (griefing / DoS on audit lifecycle).",
+      "recommendation": "1. Define explicit policy: immutable-once-anchored or updateable-by-capability-only. 2. If immutable, abort with E_ALREADY_ANCHORED on duplicate. 3. If updateable, require the same capability used to create. 4. Add tests for both the happy path and the duplicate-rejection path.",
+      "codeSnippet": "// Missing test:\n// anchor_audit(contract_hash, blob_id_v2, 0, ctx); // should abort or require cap\n// assert!(registry::verify_audit(&registry, contract_hash), 0); // original preserved?"
+    },
+    {
+      "id": "FIND-004",
+      "title": "contract_hash Input Length Not Validated — Undersized Hash Accepted",
+      "severity": "MEDIUM",
+      "category": "LOGIC",
+      "location": {
+        "module": "move_auditor::registry_tests",
+        "function": "test_anchor_audit_adds_record",
+        "lineHint": "Line 33"
+      },
+      "description": "The test uses b\"abc123hash\" (10 bytes) as contract_hash. A real contract identifier would be a 32-byte SHA-256 or 20-byte address. No length assertion exists in the test, implying the production function accepts vectors of any length. Short or empty hashes dramatically increase collision probability and allow two different contracts to share a hash prefix that maps to the same registry key if the storage uses a non-cryptographic key derivation.",
+      "impact": "Two different contracts with hashes that share a prefix (or an attacker who crafts a short hash matching an existing entry's prefix) could produce false verify_audit results. Empty-hash anchoring could corrupt the registry index.",
+      "recommendation": "1. Add `assert!(vector::length(&contract_hash) == 32, E_INVALID_HASH_LENGTH)` in anchor_audit. 2. Add a test that passes an empty or short hash and asserts abort. 3. Document the expected hash algorithm (SHA-256 recommended).",
+      "codeSnippet": "let contract_hash = b\"abc123hash\"; // 10 bytes — should be 32"
+    },
+    {
+      "id": "FIND-005",
+      "title": "risk_score Range Not Validated or Documented",
+      "severity": "MEDIUM",
+      "category": "LOGIC",
+      "location": {
+        "module": "move_auditor::registry_tests",
+        "function": "test_anchor_audit_adds_record",
+        "lineHint": "Line 37"
+      },
+      "description": "The comment `// HIGH risk` implies a risk taxonomy (e.g., 0=CLEAN, 1=LOW, 2=MEDIUM, 3=HIGH, 4=CRITICAL), but no boundary test exists. Values like 255 or u64::MAX are never tested for rejection. Without an on-chain range assertion, consumers parsing the stored score may interpret out-of-range values unpredictably or panic.",
+      "impact": "Caller supplies risk_score = 0 to falsely mark a critical contract as clean, or supplies 255 to corrupt display logic in consumers that map the score to a label array. No production guard is evidenced by the tests.",
+      "recommendation": "1. Define and enforce `assert!(risk_score <= MAX_RISK_LEVEL, E_INVALID_RISK_SCORE)` in anchor_audit. 2. Add boundary tests: score at max valid value (passes), score at max+1 (aborts).",
+      "codeSnippet": "registry::anchor_audit(\n    &mut registry,\n    contract_hash,\n    blob_id,\n    3, // no range check enforced\n    ts::ctx(&mut scenario),\n);"
+    },
+    {
+      "id": "FIND-006",
+      "title": "No Event Emission Verified — Off-Chain Indexers Operate Blind",
+      "severity": "LOW",
+      "category": "OTHER",
+      "location": {
+        "module": "move_auditor::registry_tests",
+        "function": "test_anchor_audit_adds_record",
+        "lineHint": "Lines 28-47"
+      },
+      "description": "The test verifies registry state via verify_audit but does not assert that an AuditAnchored event (or equivalent) is emitted. If the production implementation omits event emission, off-chain indexers, badge services, and monitoring tools that rely on Sui event subscriptions will never learn about new anchors without polling the full shared object state.",
+      "impact": "Silent anchoring means no off-chain notification. Fraudulent anchors go undetected until an indexer performs an expensive full-state scan. Badge issuance and alert pipelines are blind to new entries.",
+      "recommendation": "1. Emit a structured event in anchor_audit: AuditAnchored { contract_hash, blob_id, risk_score, auditor: ctx.sender(), epoch }. 2. Add a test that checks event emission using ts::next_tx event inspection.",
+      "codeSnippet": "// Missing:\n// let events = ts::emitted_events<registry::AuditAnchored>(&scenario);\n// assert!(vector::length(&events) == 1, 0);"
+    },
+    {
+      "id": "FIND-007",
+      "title": "Capability Enforcement Not Tested — init_for_testing May Bypass Production Guards",
+      "severity": "LOW",
+      "category": "ACCESS_CONTROL",
+      "location": {
+        "module": "move_auditor::registry_tests",
+        "function": "setup",
+        "lineHint": "Lines 9-13"
+      },
+      "description": "The setup function calls init_for_testing rather than the production init. Test-only initializers commonly skip capability issuance or access-control wiring to simplify test setup. If AdminCap is not transferred to ADMIN in init_for_testing, tests that appear to pass access control are actually testing a cap-free environment, giving false assurance about production behavior.",
+      "impact": "Tests pass in a permissive test environment but production init correctly issues a cap — tests then provide no signal about whether anchor_audit correctly requires the cap. Conversely, if init_for_testing issues the cap but the tests never use it, production may silently drop the cap requirement.",
+      "recommendation": "1. Ensure init_for_testing mirrors production init exactly for all security-relevant state (cap issuance, admin address). 2. Tests should explicitly take the AdminCap from the scenario and pass it to anchor_audit to confirm the production signature.",
+      "codeSnippet": "fun setup(scenario: &mut Scenario) {\n    ts::next_tx(scenario, ADMIN);\n    {\n        registry::init_for_testing(ts::ctx(scenario)); // may skip cap issuance\n    };\n}"
+    }
+  ],
+  "gasAnalysis": {
+    "expensivePatterns": [
+      "verify_audit likely performs a Table or VecMap lookup on every call — if contract_hash is stored as vector<u8> key, each lookup copies and hashes the full byte vector rather than using a fixed-width key.",
+      "anchor_audit stores blob_id as raw vector<u8> inline in the registry entry — large Walrus blob IDs (64+ bytes) increase per-entry storage cost and lookup serialization cost.",
+      "Shared object AuditRegistry is a single contention point — all anchor_audit and verify_audit calls contend on one object, bounding throughput to ~few hundred TPS and increasing gas under load."
+    ],
+    "optimizationSuggestions": [
+      "Store contract_hash as address (32 bytes, fixed-width) rather than vector<u8> to use O(1) Table<address, _> lookups with no copy overhead.",
+      "Store blob_id as a fixed 32-byte Walrus content address (use vector<u8> with enforced length 32) to cap per-entry size.",
+      "Consider splitting AuditRegistry into per-package or per-deployer sub-registries to reduce shared-object contention and allow parallel writes."
+    ]
+  },
+  "overallRecommendations": [
+    "CRITICAL PATH: Add capability-gated access control to anchor_audit immediately — the current API is a shared-writable endpoint callable by any address, enabling fraudulent audit record injection.",
+    "Implement on-chain oracle signature verification over (contract_hash, blob_id, risk_score, epoch) before any anchor is accepted — this is the foundational AI trust boundary for the entire system.",
+    "Add duplicate-anchor policy with explicit abort on re-anchor of the same contract_hash, or updateable-only-via-capability semantics, to prevent overwrite attacks and DoS on re-audit.",
+    "Enforce vector<u8> length == 32 for contract_hash and a documented fixed length for blob_id, rejecting all inputs that deviate.",
+    "Add risk_score range assertion (0..=MAX_RISK_LEVEL) on-chain and test boundary values.",
+    "Write negative-path tests for every access-control gate: unauthorized caller abort, invalid hash length abort, out-of-range score abort, duplicate anchor abort.",
+    "Emit structured AuditAnchored events and test for their emission so off-chain indexers and badge pipelines can react without polling."
+  ]
+}

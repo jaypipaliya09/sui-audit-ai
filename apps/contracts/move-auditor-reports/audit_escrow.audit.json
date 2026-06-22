@@ -1,0 +1,151 @@
+{
+  "summary": {
+    "contractName": "move_auditor::escrow",
+    "moduleCount": 1,
+    "lineCount": 121,
+    "overallRisk": "HIGH",
+    "executiveSummary": "The escrow contract implements a basic lock/capture/refund lifecycle for audit payments but has several significant flaws. Most critically, capture() requires zero proof of AI audit delivery — either party can sweep funds without any on-chain binding to an audit result, violating the oracle trust boundary central to this AI track. A second structural flaw is the fully dead status field: STATUS_LOCKED is set on creation but never checked, and status is silently discarded in every consuming function, indicating an incomplete state machine. The payer-can-refund-at-any-time design creates a reliable griefing vector against the auditing service performing off-chain AI work."
+  },
+  "findings": [
+    {
+      "id": "FIND-001",
+      "title": "Capture Requires No Proof of AI Audit Delivery — Oracle Trust Boundary Violation",
+      "severity": "HIGH",
+      "category": "OTHER",
+      "location": {
+        "module": "move_auditor::escrow",
+        "function": "capture",
+        "lineHint": "Lines 83-97"
+      },
+      "description": "capture() allows either payer or authority to sweep escrow funds to authority with no on-chain evidence that an audit was performed or that any AI model output was delivered. There is no Walrus blob_id, no IPFS CID, no cryptographic commitment, and no external oracle attestation required. Any entity holding one of these two addresses can call capture() immediately after lock() and drain funds without delivering the audit service. For an AI-powered dApp, this means the off-chain AI result is entirely unbounded from the on-chain payment release.",
+      "impact": "Authority (or a compromised authority key) can call capture() at any time without delivering an audit report, stealing the payer's funds. Conversely, the payer could attempt social engineering by offering to self-sign capture() in exchange for some side-channel concession. The AI audit result has zero cryptographic binding to the payment release, making the trust model entirely off-chain.",
+      "recommendation": "Introduce a required audit result commitment before capture is permitted. At minimum, emit and verify a result_blob_id (Walrus CID) or result_hash (bytes32) field that must be provided to capture(). Stronger: require a signed attestation from a designated oracle or verifier address distinct from authority before capture unlocks. Store this commitment in AuditEscrow and assert it is non-empty in capture().",
+      "codeSnippet": "public entry fun capture<T>(escrow: AuditEscrow<T>, ctx: &mut TxContext) {\n    let sender = tx_context::sender(ctx);\n    assert!(sender == escrow.payer || sender == escrow.authority, ENotAuthorized);\n    // No proof of audit delivery required — funds transfer immediately\n    let AuditEscrow { id, payer: _, authority, funds, amount, status: _ } = escrow;\n    ..."
+    },
+    {
+      "id": "FIND-002",
+      "title": "Payer Can Unilaterally Refund Mid-Audit — Griefing the AI Service",
+      "severity": "HIGH",
+      "category": "LOGIC",
+      "location": {
+        "module": "move_auditor::escrow",
+        "function": "refund",
+        "lineHint": "Lines 100-115"
+      },
+      "description": "refund() permits the payer to trigger a refund at any time without authority consent. While the comment frames this as a Ctrl+C convenience, it means a payer can lock funds, allow the authority to begin expensive AI inference (compute costs, API calls, Walrus storage), then immediately call refund() to claw back funds after receiving partial or full audit output. There is no on-chain timelock, no status transition guard, and no authority veto over payer-initiated refunds.",
+      "impact": "Payer performs a free AI audit: lock funds, trigger off-chain AI processing, receive results via event/callback, then call refund() before authority calls capture(). The authority bears all compute costs with zero compensation. Repeated attacks drain the auditing service's operational budget.",
+      "recommendation": "Implement a time-locked refund: record a lock_epoch or lock_timestamp in AuditEscrow. Allow payer-initiated refund only after a deadline has passed without a capture (e.g., N epochs). Before the deadline, only the authority may refund. Alternatively, require authority co-signature on payer refunds.",
+      "codeSnippet": "public entry fun refund<T>(escrow: AuditEscrow<T>, ctx: &mut TxContext) {\n    let sender = tx_context::sender(ctx);\n    assert!(sender == escrow.payer || sender == escrow.authority, ENotAuthorized);\n    // Payer can refund immediately with no time constraint or authority consent\n    ..."
+    },
+    {
+      "id": "FIND-003",
+      "title": "Dead Status Field — Incomplete State Machine",
+      "severity": "MEDIUM",
+      "category": "LOGIC",
+      "location": {
+        "module": "move_auditor::escrow",
+        "function": null,
+        "lineHint": "Lines 9, 22, 90, 111"
+      },
+      "description": "STATUS_LOCKED (= 0) is defined and assigned in lock(), but the status field is explicitly ignored (status: _) in both capture() and refund() destructuring. No STATUS_CAPTURED or STATUS_REFUNDED constant exists. The field carries no runtime enforcement whatsoever. This indicates an intended state machine that was never implemented. While Move's linear type system prevents double-spend (object is consumed on first call), the unused field wastes storage and signals broken design intent.",
+      "impact": "No direct exploit due to Move ownership guarantees, but the dead state field is misleading: future developers or auditors may assume state transitions are enforced when they are not. Any upgrade that adds mutating functions (e.g., a partial-capture pattern) would be unprotected by the phantom status field.",
+      "recommendation": "Either (a) remove the status field entirely since Move's linear types already enforce single-use, or (b) implement the full state machine with STATUS_CAPTURED and STATUS_REFUNDED and enforce transitions. If the field is retained for off-chain indexing via events, document this explicitly.",
+      "codeSnippet": "const STATUS_LOCKED: u8 = 0;\n// ...\nstruct AuditEscrow<phantom T> has key {\n    // ...\n    status: u8,  // Set once, never read\n}\n// In capture:\nlet AuditEscrow { id, payer: _, authority, funds, amount, status: _ } = escrow;  // status discarded"
+    },
+    {
+      "id": "FIND-004",
+      "title": "Payer Authorized to Trigger Capture — Unexpected Payment Authorization Model",
+      "severity": "MEDIUM",
+      "category": "ACCESS_CONTROL",
+      "location": {
+        "module": "move_auditor::escrow",
+        "function": "capture",
+        "lineHint": "Lines 84-85"
+      },
+      "description": "The capture() guard allows sender == escrow.payer in addition to sender == escrow.authority. The comment explains this is intentional so the treasury never needs a key online, but the consequence is that payer has identical capture authority to the treasury. In an AI audit flow, this means a payer who is dissatisfied with (or has not yet received) audit results can choose to call capture() themselves, voluntarily sending funds to authority. More dangerously, a phishing or social-engineering attack that compromises the payer's wallet also compromises capture authority.",
+      "impact": "Compromised payer key equals compromised capture key. A malicious actor who phishes the payer can drain the escrow to authority (or trigger refund). The design conflates two distinct roles into one address set, reducing the security boundary.",
+      "recommendation": "Restrict capture() to sender == escrow.authority only. If the payer needs to voluntarily pay, add a separate payer_approve() function that sets an approval flag, requiring authority to then execute the actual transfer. This enforces role separation.",
+      "codeSnippet": "assert!(sender == escrow.payer || sender == escrow.authority, ENotAuthorized);"
+    },
+    {
+      "id": "FIND-005",
+      "title": "Zero-Amount Escrow Allowed",
+      "severity": "LOW",
+      "category": "LOGIC",
+      "location": {
+        "module": "move_auditor::escrow",
+        "function": "lock",
+        "lineHint": "Lines 62-79"
+      },
+      "description": "lock() does not assert that the payment coin has value > 0. A caller can lock a zero-value coin, creating a shared AuditEscrow object with amount = 0. This wastes shared object slots on Sui (shared objects have validator overhead), can pollute event logs with EscrowLocked events for zero-value escrows, and may confuse off-chain indexers.",
+      "impact": "Low-cost spam of shared objects and events. No fund loss, but degrades protocol hygiene and off-chain observability.",
+      "recommendation": "Add `assert!(amount > 0, EZeroAmount)` in lock() after computing amount.",
+      "codeSnippet": "let amount = coin::value(&payment);\n// Missing: assert!(amount > 0, EZeroAmount);"
+    },
+    {
+      "id": "FIND-006",
+      "title": "No Validation of Authority Address",
+      "severity": "LOW",
+      "category": "ACCESS_CONTROL",
+      "location": {
+        "module": "move_auditor::escrow",
+        "function": "lock",
+        "lineHint": "Lines 62-79"
+      },
+      "description": "lock() accepts any address as authority, including @0x0 (zero address) and the payer's own address. Setting authority == payer collapses both roles to one party, making the escrow a no-op commitment (payer controls both capture and refund). Setting authority == @0x0 locks funds permanently since the zero address cannot sign transactions on Sui.",
+      "impact": "Payer setting authority == self can trivially refund at will with no meaningful escrow semantics. Payer setting authority == @0x0 permanently burns funds.",
+      "recommendation": "Assert `authority != payer` and `authority != @0x0` in lock().",
+      "codeSnippet": "public entry fun lock<T>(\n    payment: Coin<T>,\n    authority: address,  // No validation\n    ctx: &mut TxContext\n) {"
+    },
+    {
+      "id": "FIND-007",
+      "title": "amount Field Redundant and Potentially Stale",
+      "severity": "LOW",
+      "category": "LOGIC",
+      "location": {
+        "module": "move_auditor::escrow",
+        "function": null,
+        "lineHint": "Lines 22-28"
+      },
+      "description": "AuditEscrow stores both funds: Balance<T> and amount: u64. The amount() accessor correctly reads from balance::value(&escrow.funds), but EscrowCaptured and EscrowRefunded events emit the stored amount field rather than the actual balance value at time of transfer. These will always match in the current code since funds can only enter via lock(), but if the struct is ever extended to allow partial withdrawals or top-ups, the cached amount would silently diverge from actual balance.",
+      "impact": "No current exploit. Future-proofing risk: any mutation of funds without updating amount causes event emission with incorrect values, misleading off-chain indexers.",
+      "recommendation": "Remove the redundant amount field. Compute it inline from balance::value(&escrow.funds) when needed for events.",
+      "codeSnippet": "struct AuditEscrow<phantom T> has key {\n    // ...\n    funds: Balance<T>,\n    amount: u64,  // Redundant; duplicates balance value\n}"
+    },
+    {
+      "id": "FIND-008",
+      "title": "No Replay Protection for Off-Chain AI Result Submission",
+      "severity": "MEDIUM",
+      "category": "OTHER",
+      "location": {
+        "module": "move_auditor::escrow",
+        "function": "capture",
+        "lineHint": "Lines 83-97"
+      },
+      "description": "For the AI track specifically: capture() accepts no parameters representing the AI audit result (no blob_id, no result_hash, no nonce). If a future upgrade adds result submission to capture(), there is no escrow-specific nonce or job_id binding in the struct. An attacker who observes a valid capture() call for one escrow cannot replay it against another (object IDs differ), but if the authority signs an off-chain message authorizing capture, that message has no per-escrow binding unless explicitly included. The current design provides no foundation for non-interactive proof-of-delivery patterns.",
+      "impact": "Off-chain AI result attestations cannot be cryptographically bound to a specific escrow without redesign. If the protocol evolves to accept signed AI results, replay across escrows becomes possible unless mitigated at the signing layer.",
+      "recommendation": "Add a job_id: ID field to AuditEscrow referencing the specific audit job. When capture() is extended to accept AI result proofs, include job_id and escrow object ID in the signed payload to prevent cross-escrow replay.",
+      "codeSnippet": "struct AuditEscrow<phantom T> has key {\n    id: UID,\n    // Missing: job_id: ID — no binding to a specific audit job\n    payer: address,\n    authority: address,\n    ..."
+    }
+  ],
+  "gasAnalysis": {
+    "expensivePatterns": [
+      "Shared object usage (transfer::share_object) introduces validator-wide locking on every capture/refund call — all validators must process contention even for independent escrows",
+      "event::emit on lock, capture, and refund all serialize full structs including ID, addresses, and u64 — unavoidable but worth noting for high-frequency usage",
+      "object::delete in capture and refund reclaims storage rebate correctly — no waste here"
+    ],
+    "optimizationSuggestions": [
+      "Consider owned-object escrow pattern (transfer to payer, payer passes as input) to eliminate shared object contention if authority does not need to initiate transactions without payer cooperation",
+      "Remove the redundant amount: u64 field from AuditEscrow to save one u64 (8 bytes) per object in on-chain storage",
+      "STATUS_LOCKED constant and status field consume storage with zero runtime benefit — removing both saves 1 byte per object and reduces struct size"
+    ]
+  },
+  "overallRecommendations": [
+    "CRITICAL PRIORITY — Bind capture() to on-chain AI result proof: require a result_blob_id or result_hash parameter in capture(), store a commitment hash in AuditEscrow at lock time or via a separate commit() function, and assert the submitted result matches before releasing funds",
+    "HIGH PRIORITY — Add timelock to payer-initiated refunds: record lock_epoch in AuditEscrow, allow payer refund only after N epochs elapsed, giving the authority a window to deliver results and call capture() without race condition",
+    "HIGH PRIORITY — Restrict capture() to authority-only: remove sender == escrow.payer from capture() guard to enforce role separation between the party paying and the party attesting to service delivery",
+    "MEDIUM PRIORITY — Implement the status state machine or remove the field: either delete status: u8 entirely (Move ownership already prevents double-spend) or add STATUS_CAPTURED/STATUS_REFUNDED with enforcement",
+    "LOW PRIORITY — Add input validation in lock(): assert amount > 0, authority != @0x0, and authority != payer to prevent degenerate escrow configurations",
+    "DESIGN RECOMMENDATION — Add a job_id: ID field linking each escrow to a specific audit job, enabling future non-interactive proof-of-delivery patterns and preventing cross-escrow result replay if signed attestations are introduced"
+  ]
+}

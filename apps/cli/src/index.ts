@@ -15,7 +15,14 @@ import { PaymentService, HoldId } from './payment/payment.service';
 import { EscrowPaymentService } from './payment/escrow.service';
 import { MockPaymentService } from './payment/mock.service';
 import { loadPayerKeypair } from './sui/client';
-import { loadConfig, saveConfig, BACKEND_URL, FRONTEND_URL } from './config';
+import {
+  loadConfig,
+  saveConfig,
+  BACKEND_URL,
+  FRONTEND_URL,
+  ESCROW_PACKAGE_ID,
+  TREASURY_ADDRESS,
+} from './config';
 
 function buildPaymentService(): PaymentService {
   if (process.env.MOVE_AUDITOR_MOCK_PAYMENT === '1') {
@@ -25,14 +32,13 @@ function buildPaymentService(): PaymentService {
   const payer = loadPayerKeypair();
   if (!payer) {
     throw new Error(
-      'MOVE_AUDITOR_SECRET_KEY is not configured. Set it in the environment and restart.',
+      'Wallet secret key is not configured.\n' +
+        'Run `move-auditor setup` to add your payer key.',
     );
   }
-  const escrowPackageId = process.env.ESCROW_PACKAGE_ID?.trim() ?? '';
-  const treasuryAddress = process.env.TREASURY_ADDRESS?.trim() ?? '';
-  if (!escrowPackageId) throw new Error('ESCROW_PACKAGE_ID is not configured.');
-  if (!treasuryAddress) throw new Error('TREASURY_ADDRESS is not configured.');
-  return new EscrowPaymentService(payer, escrowPackageId, treasuryAddress);
+  if (!ESCROW_PACKAGE_ID) throw new Error('ESCROW_PACKAGE_ID is not configured (operator error).');
+  if (!TREASURY_ADDRESS) throw new Error('TREASURY_ADDRESS is not configured (operator error).');
+  return new EscrowPaymentService(payer, ESCROW_PACKAGE_ID, TREASURY_ADDRESS);
 }
 
 /** Step 1: ask for and validate the Slush wallet. */
@@ -193,6 +199,26 @@ function attachWalrusLinks(summary: RunSummary, uploaded: UploadedRun | null): v
 async function runWizard(): Promise<void> {
   console.log(chalk.green('\n=== Move Auditor ===\n'));
 
+  // Step 0: ask for payer secret key if not yet configured
+  const existingKey = loadConfig().secretKey ?? process.env.MOVE_AUDITOR_SECRET_KEY;
+  if (!existingKey) {
+    console.log(chalk.yellow('No payer wallet key found. Please enter your Sui wallet secret key.'));
+    console.log(chalk.gray('This is used to sign escrow payments. It stays on your machine only.\n'));
+
+    const { secretKey } = await prompts({
+      type: 'password',
+      name: 'secretKey',
+      message: 'Your Sui wallet secret key (suiprivkey1… or base64 Ed25519)',
+    });
+
+    if (!secretKey?.trim()) {
+      throw new Error('Wallet secret key is required to proceed.');
+    }
+
+    saveConfig({ ...loadConfig(), secretKey: secretKey.trim() });
+    console.log(chalk.green('✓ Key saved to ~/.move-auditor/config.json\n'));
+  }
+
   const { address: walletAddress, balanceSui } = await connectWallet();
   const track = await selectTrack();
   const plan = await selectPlan();
@@ -334,6 +360,47 @@ program
   .name('move-auditor')
   .description('Audit Sui Move contracts with Claude, pay per file from your Slush wallet')
   .version('1.0.0');
+
+program
+  .command('setup')
+  .description('Configure your Groq API key and payer wallet key (stored in ~/.move-auditor/config.json)')
+  .action(async () => {
+    console.log(chalk.green('\n=== Move Auditor Setup ===\n'));
+    console.log(chalk.gray('Your settings will be saved to ~/.move-auditor/config.json'));
+    console.log(chalk.gray('This file is private to your machine and never shared.\n'));
+
+    const current = loadConfig();
+
+    const { groqApiKey } = await prompts({
+      type: 'password',
+      name: 'groqApiKey',
+      message: 'Groq API key (get a free one at https://console.groq.com/keys)',
+      initial: current.groqApiKey ?? '',
+    });
+
+    const { secretKey } = await prompts({
+      type: 'password',
+      name: 'secretKey',
+      message: 'Payer wallet secret key (suiprivkey1… or base64 Ed25519)',
+      initial: current.secretKey ?? '',
+    });
+
+    if (!groqApiKey && !secretKey) {
+      console.log(chalk.yellow('\nNo values entered — setup cancelled.'));
+      return;
+    }
+
+    saveConfig({
+      ...current,
+      ...(groqApiKey ? { groqApiKey } : {}),
+      ...(secretKey ? { secretKey } : {}),
+    });
+
+    console.log(chalk.green('\n✓ Configuration saved to ~/.move-auditor/config.json'));
+    if (groqApiKey) console.log(chalk.green('  ✓ Groq API key set'));
+    if (secretKey) console.log(chalk.green('  ✓ Payer wallet key set'));
+    console.log(chalk.gray('\nRun `move-auditor audit` to start an audit session.\n'));
+  });
 
 program
   .command('audit', { isDefault: true })

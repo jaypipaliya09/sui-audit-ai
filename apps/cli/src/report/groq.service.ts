@@ -1,13 +1,20 @@
 import Groq from 'groq-sdk';
 import chalk from 'chalk';
 import { AuditResult } from '../auditor/claude-cli.service';
+import { getGroqApiKey } from '../config';
 
 export class GroqReportService {
   private groq: Groq;
 
   constructor() {
-    // Requires GROQ_API_KEY environment variable to be set
-    this.groq = new Groq();
+    const apiKey = getGroqApiKey();
+    if (!apiKey) {
+      throw new Error(
+        'Groq API key is not configured.\n' +
+          'Run `move-auditor setup` to set it up, or get a free key at https://console.groq.com/keys',
+      );
+    }
+    this.groq = new Groq({ apiKey });
   }
 
   /**

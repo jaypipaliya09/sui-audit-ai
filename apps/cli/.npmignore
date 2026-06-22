@@ -1,0 +1,17 @@
+# Never publish secrets or dev artifacts to npm
+.env
+.env.*
+!.env.example
+
+# Dev tooling
+src/
+tsconfig.json
+*.ts
+!*.d.ts
+
+# Misc
+.DS_Store
+*.log
+smoke-*.js
+PACKAGE_PLAN.md
+move-auditor-reports/

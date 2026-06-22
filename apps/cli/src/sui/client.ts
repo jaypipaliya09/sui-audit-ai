@@ -2,7 +2,7 @@ import { SuiClient } from '@mysten/sui/client';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { decodeSuiPrivateKey } from '@mysten/sui/cryptography';
 import { fromBase64 } from '@mysten/sui/utils';
-import { SUI_RPC_URL } from '../config';
+import { SUI_RPC_URL, getSecretKey } from '../config';
 
 let client: SuiClient | null = null;
 
@@ -19,11 +19,12 @@ export function getSuiClient(): SuiClient {
  *   - a bech32 `suiprivkey1...` secret key (Sui CLI / Slush export format), or
  *   - a base64-encoded 32-byte Ed25519 secret key.
  *
- * Read from MOVE_AUDITOR_SECRET_KEY. Returns null when not configured so the
- * caller can fail with a friendly message instead of throwing.
+ * Read from ~/.move-auditor/config.json → secretKey (or MOVE_AUDITOR_SECRET_KEY
+ * env var for dev). Returns null when not configured so the caller can fail
+ * with a friendly message instead of throwing.
  */
 export function loadPayerKeypair(): Ed25519Keypair | null {
-  const raw = process.env.MOVE_AUDITOR_SECRET_KEY?.trim();
+  const raw = getSecretKey()?.trim();
   if (!raw) return null;
 
   try {
@@ -34,9 +35,9 @@ export function loadPayerKeypair(): Ed25519Keypair | null {
     return Ed25519Keypair.fromSecretKey(fromBase64(raw));
   } catch (error) {
     throw new Error(
-      `MOVE_AUDITOR_SECRET_KEY is set but could not be parsed: ${
+      `Secret key is set but could not be parsed: ${
         error instanceof Error ? error.message : error
-      }`,
+      }. Run \`move-auditor setup\` to reconfigure.`,
     );
   }
 }

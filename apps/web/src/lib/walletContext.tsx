@@ -97,6 +97,10 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
       if (storedAddr) {
         setAddress(storedAddr);
 
+        // Load audits for this specific wallet address
+        const savedAudits = localStorage.getItem(`${AUDITS_KEY}_${storedAddr}`);
+        if (savedAudits) setMyAudits(JSON.parse(savedAudits));
+
         // Only re-attach the Slush/Sui wallet provider
         if (storedWalletId === 'sui') {
           // Extensions inject with a slight delay — retry up to 3s
@@ -115,9 +119,6 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
           }, 500);
         }
       }
-
-      const audits = localStorage.getItem(AUDITS_KEY);
-      if (audits) setMyAudits(JSON.parse(audits));
     } catch {}
   }, []);
 

@@ -33,7 +33,7 @@ export class EscrowPaymentService implements PaymentService {
 
     // For native SUI, split from the gas coin to avoid InsufficientCoinBalance errors.
     // For other coins, use coinWithBalance to resolve the required amount.
-    const isSui = SUI_COIN_TYPE === '0x2::sui::SUI' || SUI_COIN_TYPE.endsWith('::sui::SUI');
+    const isSui = (SUI_COIN_TYPE as string) === '0x2::sui::SUI' || (SUI_COIN_TYPE as string).endsWith('::sui::SUI');
     const paymentAmount = suiToBaseUnits(amountSui);
     
     const payment = isSui
